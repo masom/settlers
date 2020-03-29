@@ -12,11 +12,6 @@ class Position:
 class Entity:
     components = []
 
-    __slots__ = [
-        'components',
-        'position',
-    ]
-
     def __init__(self):
         self.components = Components(self)
         self.position = Position(-1, -1)

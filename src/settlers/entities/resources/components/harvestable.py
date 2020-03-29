@@ -44,7 +44,7 @@ class Harvestable(Component):
         self, owner, target_attr, ticks_per_cycle,
         harvest_value_per_cycle, max_harvesters
     ):
-        super(Component, owner)
+        super().__init__(owner)
 
         self.harvesters = []
         self.harvest_value_per_cycle = harvest_value_per_cycle
