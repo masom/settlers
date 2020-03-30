@@ -54,13 +54,13 @@ class Components:
             else:
                 raise
 
-            component_instance = component_class(self, *arguments)
+            component_instance = component_class(self.owner, *arguments)
 
         self.components.append(component_instance)
 
         if hasattr(component_instance, 'exposed_as'):
-            component_proxy = ComponentProxy(component_instance)
-            setattr(self, component_instance.exposed_as, component_proxy)
+            component_proxy = ComponentProxy(self.owner, component_instance)
+            setattr(self.owner, component_instance.exposed_as, component_proxy)
 
     def remove(self, component):
         try:
@@ -75,25 +75,27 @@ class Components:
 
 
 class ComponentProxy:
-    __slots__ = ['component', 'exposed_methods', 'owner']
+    __slots__ = ['_alias', '_component', '_exposed_methods', '_owner']
 
     def __init__(self, owner, component):
-        self._owner = owner
         self._component = component
         self._exposed_methods = component.exposed_methods
+        self._owner = owner
 
         print(
             "ComponentProxy on {owner} enabled for component {component}, "
+            "as {alias}, and "
             "exposing {exposed_methods}".format(
-                owner=owner,
+                alias=component.exposed_as,
                 component=component,
                 exposed_methods=self._exposed_methods,
+                owner=owner,
             )
         )
 
     def __getattr__(self, attr):
         if attr in self._exposed_methods:
-            getattr(self._component, attr)
+            return getattr(self._component, attr)
         else:
             raise
 

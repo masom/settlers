@@ -3,10 +3,18 @@ from settlers.entities.resources.components.generative import Generative
 from settlers.entities.resources.components.harvestable import Harvestable
 
 
+class Lumber(Resource):
+    pass
+
+
+class TreeLog(Resource):
+    pass
+
+
 class Tree(Resource):
     __slots__ = ['max_quantity', 'quantity']
 
-    components = [(Harvestable, 'quantity', 3, 1, 1)]
+    components = [(Harvestable, 'quantity', TreeLog, 3, 1, 1)]
 
     def __init__(self, quantity, max_quantity):
         super().__init__()
@@ -16,14 +24,7 @@ class Tree(Resource):
 
     def initialize(self):
         self.components.add(
-            Generative(
-                self,
-                'quantity',
-                -1,
-                2,
-                1,
-                self.max_quantity
-            ),
+            (Generative, 'quantity', -1, 2, 1, self.max_quantity)
         )
 
         super().initialize()
