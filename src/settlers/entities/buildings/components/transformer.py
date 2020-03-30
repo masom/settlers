@@ -25,13 +25,13 @@ class Pipeline:
         self.ticks_per_cycle = ticks_per_cycle
 
     def build_output(self):
-        return self.storage.add(self.output())
+        return self.output_storage.add(self.output())
 
     def is_available(self):
         if self._reserved:
             return False
 
-        if self.storage.is_full():
+        if self.output_storage.is_full():
             return False
         return True
 
@@ -50,25 +50,29 @@ class Storage:
         self.storage = []
 
     def add(self, item):
-        if len(self.storage < self.capacity):
+        if len(self.storage) < self.capacity:
             self.storage.append(item)
             return True
         return False
 
     def is_full(self):
-        return len(self.storage == self.capacity)
+        return len(self.storage) == self.capacity
 
     def remove(self):
         self.storage.pop()
 
 
 class WorkerProxy:
-    __slots__ = ['pipeline', '_transformer', '_worker', '__weakref__']
+    __slots__ = [
+        'cycles', 'pipeline', 'ticks', '_transformer', '_worker', '__weakref__'
+    ]
 
     def __init__(self, transformer, worker):
+        self.cycles = 0
+        self.pipeline = None
+        self.ticks = 0
         self._transformer = weakref.ref(transformer)
         self._worker = weakref.ref(worker)
-        self.pipeline = None
 
     def is_active(self):
         transformer = self._transformer()
@@ -116,21 +120,22 @@ class WorkerProxy:
 
 
 class Transformer(Component):
-    __slots__ = ['cycles', '_pipelines', 'ticks', '_workers']
+    __slots__ = ['_active', 'cycles', '_pipelines', 'ticks', '_workers']
 
     exposed_as = 'transform'
-    exposed_methods = ['start', 'stop']
+    exposed_methods = ['add_worker', 'remote_worker', 'start', 'stop']
 
     def __init__(self, owner, pipelines):
         super().__init__(owner)
 
+        self._active = False
         self._workers = []
         self._pipelines = pipelines
 
     def add_worker(self, worker):
-        self.workers.append(WorkerProxy(self, worker))
+        self._workers.append(WorkerProxy(self, worker))
 
-    def pick_pipeline(self):
+    def next_available_pipeline(self):
         for pipeline in self._pipelines:
             if pipeline.is_available():
                 pipeline.reserve()
@@ -143,13 +148,13 @@ class Transformer(Component):
         pass
 
     def start(self):
-        self.active = True
+        self._active = True
 
     def stop(self):
-        self.active = False
+        self._active = False
 
     def tick(self):
-        if not self.active:
+        if not self._active:
             return False
 
         if len(self._workers) == 0:

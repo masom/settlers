@@ -11,8 +11,11 @@ from settlers.entities.buildings import Building
 from settlers.entities.buildings.components.transformer import (
     Transformer, Pipeline, PipelineInput, Storage
 )
+
+from settlers.entities.characters.components.worker import Worker
 from settlers.entities.characters.components.harvester import Harvester
 from settlers.entities.characters.villager import Villager
+
 from settlers.entities.resources.tree import Tree, TreeLog, Lumber
 
 
@@ -25,7 +28,7 @@ sawmill_pipelines = [
             PipelineInput(TreeLog, Storage(50))
         ],
         Lumber,
-        Storage(100),
+        Storage(2),
         2
     )
 ]
@@ -34,8 +37,9 @@ sawmill = Building()
 sawmill.components.add((Transformer, sawmill_pipelines))
 
 entities = [
-    tree,
-    Tree(0, 20),
+    sawmill,
+    # tree,
+    # Tree(0, 20),
     villager
 ]
 
@@ -47,6 +51,8 @@ for entity in entities:
 villager.components.add(Harvester)
 villager.components.add(Worker)
 # villager.harvesting.harvest(tree)
+villager.working.work_at(sawmill)
+sawmill.transform.start()
 
 for tick in range(max_ticks):
     print("Tick={tick}".format(tick=tick))
