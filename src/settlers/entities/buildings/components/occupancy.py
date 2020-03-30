@@ -12,7 +12,7 @@ class Occupancy(Component):
     exposed_methods = ['add', 'evict']
 
     def __init__(self, owner, max_occupancy):
-        super()
+        super().__init__(owner)
 
         self.max_occupancy = max_occupancy
         self.occupants = []

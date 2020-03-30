@@ -8,6 +8,11 @@ class Position:
         self.x = x
         self.y = y
 
+    def __eq__(self, other):
+        if issubclass(other, self.__class__):
+            return self.x == other.x and self.y == other.y
+        return False
+
 
 class Entity:
     components = []
