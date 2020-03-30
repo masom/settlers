@@ -15,8 +15,8 @@ class WorkerProxy:
         if not worker:
             return None
 
-        print("{worker}: we completed {quantity} {resource}!".format(
-                worker=worker,
+        print("{owner}: we completed {quantity} {resource}!".format(
+                owner=worker.owner,
                 quantity=quantity,
                 resource=resource,
             )

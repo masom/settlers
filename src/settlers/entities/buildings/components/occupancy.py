@@ -1,15 +1,21 @@
-from settlers.entities.components import Component, ComponentEvent
-from settlers.entities.components.message_queue import EventMessage, Messages
+import weakref
+
+from settlers.entities.components import Component
 
 
-OCCUPANCY_EVICTION = 'eviction'
+class OccupantProxy:
+    __slots__ = ['target', 'occupant']
+
+    def __init__(self, target, occupant):
+        self.target = weakref.ref(target)
+        self.occupant = weakref.ref(occupant)
 
 
 class Occupancy(Component):
     __slots__ = ['max_occupancy', 'occupants']
 
     exposed_as = 'occupancy'
-    exposed_methods = ['add', 'evict']
+    exposed_methods = ['add_tenant', 'evict']
 
     def __init__(self, owner, max_occupancy):
         super().__init__(owner)
@@ -17,22 +23,11 @@ class Occupancy(Component):
         self.max_occupancy = max_occupancy
         self.occupants = []
 
-    def add(self, entity):
+    def add_tenant(self, entity):
         if self.occupants.size >= self.max_occupancy:
             raise
 
-        self.occupants.push(entity)
+        self.occupants.append(OccupantProxy(self, entity))
 
-    def evict(self):
-        for occupant in self.occupants:
-            message = EventMessage(
-                Messages.TYPE_SYSTEM,
-                Messages.PRIORITY_HIGH,
-                Messages.INTERUPT_FALSE,
-                ComponentEvent(
-                    'Occupancy',
-                    OCCUPANCY_EVICTION,
-                    self
-                )
-            )
-            occupant.message_queue.add(message)
+    def evict(self, entity):
+        pass

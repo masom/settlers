@@ -25,7 +25,9 @@ class Pipeline:
         self.ticks_per_cycle = ticks_per_cycle
 
     def build_output(self):
-        return self.output_storage.add(self.output())
+        output = self.output()
+        self.output_storage.add(output)
+        return output
 
     def is_available(self):
         if self._reserved:
@@ -83,14 +85,23 @@ class WorkerProxy:
         transformer = self._transformer()
         worker = self._worker()
 
+        previous_pipeline = self.pipeline
         pipeline = transformer.next_available_pipeline()
+        self.pipeline = pipeline
+
+        if previous_pipeline is None and pipeline is None:
+            return
+
         print("{transformer}: {worker} starting to work on {pipeline}".format(
                 transformer=transformer,
                 worker=worker,
                 pipeline=pipeline
             )
         )
-        self.pipeline = pipeline
+
+    def work_completed(self, resource, quantity):
+        worker = self._worker()
+        worker.notify_of_work_completed(resource, quantity)
 
     def tick(self):
         transformer = self._transformer()
@@ -173,8 +184,12 @@ class Transformer(Component):
 
             if tick_completed:
                 pipeline = worker.pipeline
-                pipeline.unreserve()
                 worker.pipeline = None
+                output = pipeline.build_output()
+                pipeline.unreserve()
+
+                worker.work_completed(output, 1)
+
                 print(
                     "{owner}#{self} worker {worker} has completed {output}"
                     .format(
@@ -185,7 +200,6 @@ class Transformer(Component):
                     )
                 )
 
-                pipeline.build_output()
             
         return True
 
