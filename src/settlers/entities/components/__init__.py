@@ -97,7 +97,12 @@ class ComponentProxy:
         if attr in self._exposed_methods:
             return getattr(self._component, attr)
         else:
-            raise
+            raise AttributeError(
+                "`{attr}` not found on component `{component}`".format(
+                    attr=attr,
+                    component=self._component.__class__,
+                )
+            )
 
     def __hasattr__(self, attr):
         return attr in self._exposed_methods
