@@ -10,7 +10,6 @@ class Components:
         parents.extend(self.owner.__class__.__bases__)
 
         for parent_class in parents:
-            print("{parent_class}".format(parent_class=parent_class))
             if not hasattr(parent_class, 'components'):
                 return
 
@@ -45,14 +44,18 @@ class Components:
             arguments = []
 
             if type(component_definition) is tuple:
-                definition = list(component_definition)
-
-                component_class = definition.pop(0)
-                arguments = definition
+                params = list(component_definition)
+                component_class = params.pop(0)
+                arguments = params
             elif issubclass(component_definition, Component):
                 component_class = component_definition
             else:
-                raise
+                raise RuntimeError(
+                    "Invalid component declaration: {declaration}"
+                    .format(
+                        declaration=component_definition
+                    )
+                )
 
             component_instance = component_class(self.owner, *arguments)
 

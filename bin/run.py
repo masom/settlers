@@ -8,6 +8,7 @@ src_path = work_dir / 'src'
 sys.path.append(str(src_path))
 
 from settlers.entities.buildings import Building
+from settlers.entities.buildings.components.occupancy import Occupancy
 from settlers.entities.buildings.components.transformer import (
     Transformer, Pipeline, PipelineInput, Storage
 )
@@ -19,7 +20,14 @@ from settlers.entities.characters.villager import Villager
 from settlers.entities.resources.tree import Tree, TreeLog, Lumber
 
 
-villager = Villager()
+bob = Villager()
+sarah = Villager()
+
+villagers = [
+    bob,
+    sarah,
+]
+
 tree = Tree(5, 100)
 
 sawmill_pipelines = [
@@ -34,22 +42,30 @@ sawmill_pipelines = [
 ]
 
 sawmill = Building()
+sawmill.components.add((Occupancy, 1))
 sawmill.components.add((Transformer, sawmill_pipelines))
 
-entities = [
+buildings = [
     sawmill,
-    # tree,
-    # Tree(0, 20),
-    villager
 ]
+
+resources = [
+    tree,
+]
+
+entities = []
+entities.extend(buildings)
+entities.extend(resources)
+entities.extend(villagers)
 
 max_ticks = 60
 
+for villager in villagers:
+    villager.components.add(Harvester)
+    villager.components.add(Worker)
+
 for entity in entities:
     entity.initialize()
-
-villager.components.add(Harvester)
-villager.components.add(Worker)
 # villager.harvesting.harvest(tree)
 villager.working.work_at(sawmill)
 sawmill.transform.start()
