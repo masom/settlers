@@ -88,10 +88,19 @@ class Components:
                 setattr(self.owner, exposed_as, component_proxy)
 
     def remove(self, component):
-        try:
-            self.components.remove(component)
-        except ValueError:
-            return
+        self.components.remove(component)
+
+        if hasattr(component, 'exposed_as'):
+            exposed_as = component.exposed_as
+            multiple = False
+            if hasattr(component, 'expose_multiple'):
+                multiple = getattr(component, 'expose_multiple')
+
+            if multiple:
+                components = getattr(self.owner, exposed_as)
+                components.remove(component)
+            else:
+                delattr(self.owner, exposed_as)
 
     def tick(self):
         for component_instance in self.components:

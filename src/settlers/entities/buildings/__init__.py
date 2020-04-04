@@ -14,3 +14,10 @@ class Building(Entity):
         for stored_resource, storage in self.storages.items():
             if stored_resource == resource.__class__:
                 return storage
+
+    def __repr__(self):
+        return "<{klass} {name} {id}>".format(
+            id=hex(id(self)),
+            klass=self.__class__,
+            name=self.name,
+        )
