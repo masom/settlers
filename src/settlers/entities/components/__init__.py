@@ -62,8 +62,30 @@ class Components:
         self.components.append(component_instance)
 
         if hasattr(component_instance, 'exposed_as'):
+            multiple = False
+            if hasattr(component_instance, 'expose_multiple'):
+                multiple = getattr(component_instance, 'expose_multiple')
+
+            exposed_as = component_instance.exposed_as
+            exposed_as_defined = hasattr(self.owner, exposed_as)
+
+            if not multiple and exposed_as_defined:
+                raise RuntimeError(
+                    "{owner} already defined {exposed_as}".format(
+                        owner=self.owner,
+                        exposed_as=exposed_as
+                    )
+                )
+
             component_proxy = ComponentProxy(self.owner, component_instance)
-            setattr(self.owner, component_instance.exposed_as, component_proxy)
+
+            if multiple:
+                if exposed_as_defined:
+                    getattr(self.owner, exposed_as).append(component_proxy)
+                else:
+                    setattr(self.owner, exposed_as, [component_proxy])
+            else:
+                setattr(self.owner, exposed_as, component_proxy)
 
     def remove(self, component):
         try:
