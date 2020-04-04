@@ -7,6 +7,7 @@ BUILDER_ABILITY_CARPENTER = 'carpenter'
 
 STATE_IDLE = 'idle'
 STATE_BUILDING = 'building'
+STATE_DONE = 'done'
 
 
 class BuilderProxy:
@@ -35,19 +36,24 @@ class BuilderProxy:
 
         return True
 
-    def notify_of_building_completion(self, building):
+    def notify_of_building_completion(self):
         builder = self._builder()
+        target = self._target()
+
         if not builder:
+            return None
+
+        if not target:
             return None
 
         print(
             "{builder}: we built {building}.".format(
                 builder=builder,
-                building=building,
+                building=target,
             )
         )
 
-        builder.state_change(STATE_IDLE)
+        builder.state_change(STATE_DONE)
 
     def position(self):
         harvester = self._harvester()
@@ -64,13 +70,13 @@ class BuilderProxy:
 class Builder(Component):
     __slots__ = ['abilities', 'proxy', 'state']
 
-    exposed_as = 'builder'
+    exposed_as = 'construction'
     exposed_methods = ['build']
 
     def __init__(self, owner, abilities):
         super().__init__(owner)
 
-        self.abilities = abilities
+        self.abilities = set(abilities)
         self.proxy = None
         self.state = STATE_IDLE
 
@@ -78,7 +84,8 @@ class Builder(Component):
         if self.proxy:
             raise RuntimeError('already allocated to a target')
 
-        if target.construction.requires() not in self.abilities:
+        required_abilities = target.construction.required_abilities()
+        if not self.abilities.intersection(required_abilities):
             raise RuntimeError('cannot build')
 
         print("{owner}#{component}: Building {target}".format(
@@ -88,10 +95,8 @@ class Builder(Component):
             )
         )
 
-        target.harvesting.add_harvester(self.proxy)
-
-        self.proxy = BuilderProxy.new(self, target)
-        target.construction.add_builder(self.oroxy)
+        self.proxy = BuilderProxy(self, target)
+        target.construction.add_builder(self.proxy)
 
     def begin_building(self):
         if self.state == STATE_BUILDING:
@@ -117,4 +122,9 @@ class Builder(Component):
         if new_state == STATE_BUILDING:
             destination = self.destination()
             self.owner.mouvement.travel_to(destination)
+            return
+
+        if new_state == STATE_DONE:
+            self.proxy = None
+            self.state_change(STATE_IDLE)
             return

@@ -46,7 +46,7 @@ def build_construction_site(spec):
         storages[resource] = Storage(quantity)
 
     construction_site = Building(
-        "{name}'s #{target}",
+        spec.name,
         storages,
     )
 
@@ -85,7 +85,7 @@ def build_sawmill_construction_site(name):
             Lumber: 10,
         },
         10,
-        'Jello',
+        "Jello's Sawmill",
         sawmill_storages
     ))
 
@@ -134,7 +134,7 @@ entities.extend(buildings)
 entities.extend(resources)
 entities.extend(villagers)
 
-max_ticks = 60
+max_ticks = 20
 
 for villager in villagers:
     villager.components.add((Harvester, [TreeLog], Storage(1)))
@@ -145,9 +145,10 @@ for entity in entities:
     entity.initialize()
 
 # villager.harvesting.harvest(tree)
-villagers[0].working.work_at(sawmill)
-villagers[1].harvesting.assign_destination(sawmill)
-villagers[1].harvesting.harvest(tree)
+#villagers[0].working.work_at(sawmill)
+villagers[0].construction.build(construction_site)
+#villagers[1].harvesting.assign_destination(sawmill)
+#villagers[1].harvesting.harvest(tree)
 
 sawmill.transform.start()
 

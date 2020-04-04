@@ -1,3 +1,4 @@
+import weakref
 from settlers.entities.components import Component
 
 STATE_NEW = 'new'
@@ -20,7 +21,7 @@ class ConstructionSpec:
         construction_ticks, name, storages
     ):
         self.components = components
-        self.construction_abilities = construction_abilities
+        self.construction_abilities = set(construction_abilities)
         self.construction_resources = construction_resources
         self.construction_ticks = construction_ticks
         self.name = name
@@ -28,15 +29,29 @@ class ConstructionSpec:
 
 
 class BuilderProxy:
-    __slots__ = ['_builder', 'cycles', 'state', '_target', 'ticks']
+    __slots__ = ['_building', 'cycles', 'state', 'ticks', '_worker']
 
-    def __init__(self, builder, target):
-        self._builder = builder
+    def __init__(self, building, worker):
+        self._building = building
         self.state = BUILDER_STATE_IDLE
-        self._target = target
+        self.ticks = 0
+        self._worker = weakref.ref(worker)
+
+    def notify_of_building_completion(self):
+        worker = self._worker()
+        if not worker:
+            raise RuntimeError('worker is dead')
+
+        worker.notify_of_building_completion()
+
+        self._building = None
+        self._worker = None
 
     def tick(self):
-        pass
+        self.ticks += 1
+
+    def __del__(self):
+        print("{self} we going down!".format(self=self))
 
 
 class Construction(Component):
@@ -48,7 +63,7 @@ class Construction(Component):
     ]
 
     exposed_as = 'construction'
-    exposed_methods = ['add_builder']
+    exposed_methods = ['add_builder', 'required_abilities']
 
     def __init__(self, owner, spec):
         super().__init__(owner)
@@ -56,6 +71,12 @@ class Construction(Component):
         self.spec = spec
         self.state = STATE_NEW
         self.ticks = 0
+
+    def add_builder(self, builder):
+        self._workers.append(BuilderProxy(self, builder))
+
+    def required_abilities(self):
+        return self.spec.construction_abilities
 
     def state_change(self, new_state):
         if self.state == new_state:
@@ -74,10 +95,18 @@ class Construction(Component):
 
     def tick(self):
         if self.state == STATE_NEW:
+            if len(self._workers) > 0:
+                self.state_change(STATE_IN_PROGRESS)
             return
 
         if self.state == STATE_IN_PROGRESS:
+            if len(self._workers) < 1:
+                return
+
             self.ticks += 1
+
+            for worker in self._workers:
+                worker.tick()
 
             if self.ticks >= self.spec.construction_ticks:
                 self.state_change(STATE_COMPLETED)
@@ -85,11 +114,12 @@ class Construction(Component):
 
         if self.state == STATE_COMPLETED:
             for builder in self._workers:
-                del builder
-            self._workers = []
+                builder.notify_of_building_completion()
+
             self.owner.components.remove(self)
 
-            for component in self.components:
+            for component in self.spec.components:
                 self.owner.components.add(component)
 
-            del self
+            self._workers = []
+            self.spec = None
