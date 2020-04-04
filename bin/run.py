@@ -10,7 +10,7 @@ sys.path.append(str(src_path))
 from settlers.entities.buildings import Building
 from settlers.entities.buildings.components.occupancy import Occupancy
 from settlers.entities.buildings.components.transformer import (
-    Transformer, Pipeline, PipelineInput, Storage
+    Transformer, Pipeline, PipelineInput, PipelineOutput, Storage
 )
 
 from settlers.entities.characters.components.worker import Worker
@@ -30,12 +30,15 @@ villagers = [
 
 tree = Tree(5, 100)
 
+sawmill_tree_logs_store = Storage(50)
+sawmill_tree_logs_store.add(TreeLog())
+
 sawmill_pipelines = [
     Pipeline(
         [
-            PipelineInput(TreeLog, Storage(50))
+            PipelineInput(1, TreeLog, sawmill_tree_logs_store)
         ],
-        Lumber,
+        PipelineOutput(5, Lumber),
         Storage(2),
         2
     )
@@ -66,6 +69,7 @@ for villager in villagers:
 
 for entity in entities:
     entity.initialize()
+
 # villager.harvesting.harvest(tree)
 villager.working.work_at(sawmill)
 sawmill.transform.start()
