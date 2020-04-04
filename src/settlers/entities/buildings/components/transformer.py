@@ -233,7 +233,7 @@ class Transformer(Component):
                         worker=worker,
                     )
                 )
-                next
+                continue
 
             if tick_completed:
                 pipeline = worker.pipeline

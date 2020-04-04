@@ -10,15 +10,23 @@ class HarvesterProxy:
         self._harvester = weakref.ref(harvester)
         self._target = weakref.ref(target)
 
-    def notify_of_harvest(self, resource, quantity):
+    def can_harvest(self):
+        harvester = self._harvester()
+        return not harvester.storage.is_full()
+
+    def notify_of_harvest(self, resources):
         harvester = self._harvester()
         if not harvester:
             return None
 
-        print("{harvester}: we got a harvest of {quantity} {resource}!".format(
+        for resource in resources:
+            added = harvester.storage.add(resource)
+            if not added:
+                break
+
+        print("{harvester}: we got a harvest of {resources}!".format(
                 harvester=harvester,
-                quantity=quantity,
-                resource=resource,
+                resources=resources,
             )
         )
 
@@ -26,7 +34,7 @@ class HarvesterProxy:
 
     def position(self):
         harvester = self._harvester()
-        harvester.owner.position
+        return harvester.owner.position
 
     def stop_harvesting(self):
         target = self._target()
@@ -37,18 +45,23 @@ class HarvesterProxy:
 
 
 class Harvester(Component):
-    __slots__ = ['proxy']
+    __slots__ = ['storage', 'proxy', 'resources']
 
     exposed_as = 'harvesting'
     exposed_methods = ['harvest']
 
-    def __init__(self, owner):
+    def __init__(self, owner, resources, storage):
         super().__init__(owner)
 
         self.proxy = None
+        self.resources = resources
+        self.storage = storage
 
     def harvest(self, target):
         if self.proxy:
+            raise
+
+        if target.harvesting.provides() not in self.resources:
             raise
 
         print("{owner}: Harvesting {target}".format(

@@ -24,7 +24,7 @@ class Tree(Resource):
 
     def initialize(self):
         self.components.add(
-            (Generative, 'quantity', -1, 2, 1, self.max_quantity)
+            (Generative, 'quantity', -1, 4, 1, self.max_quantity)
         )
 
         super().initialize()
