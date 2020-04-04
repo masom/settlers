@@ -14,7 +14,7 @@ class TreeLog(Resource):
 class Tree(Resource):
     __slots__ = ['max_quantity', 'quantity']
 
-    components = [(Harvestable, 'quantity', TreeLog, 3, 1, 1)]
+    components = [(Harvestable, 'quantity', TreeLog, 3, 3, 1)]
 
     def __init__(self, quantity, max_quantity):
         super().__init__()

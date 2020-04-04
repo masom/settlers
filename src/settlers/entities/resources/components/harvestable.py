@@ -54,8 +54,9 @@ class Harvester:
 
     def resource_harvested(self, resources):
         harvester = self.harvester_ref()
-        self.harvested += len(resources)
-        harvester.notify_of_harvest(resources)
+        actual_harvest = harvester.notify_of_harvest(resources)
+        self.harvested += actual_harvest
+        return actual_harvest
 
     def harvester_stopped(self):
         resource = self.resource_ref()
@@ -150,12 +151,14 @@ class Harvestable(Component):
                 next
 
             if tick_completed:
-                change_to = value - self.harvest_value_per_cycle
-                value = max(0, change_to)
-                harvested = min(self.harvest_value_per_cycle, value)
-                harvester.resource_harvested(
-                    self.build_output(harvested)
+                possible_harvest = min(self.harvest_value_per_cycle, value)
+
+                harvested = harvester.resource_harvested(
+                    self.build_output(possible_harvest)
                 )
+
+                change_to = value - harvested
+                value = max(0, change_to)
 
             if value == 0:
                 harvester.active = False
