@@ -19,18 +19,26 @@ class HarvesterProxy:
         if not harvester:
             return None
 
+        carrying = 0
+
         for resource in resources:
             added = harvester.storage.add(resource)
-            if not added:
+            if added:
+                carrying += 1
+            else:
                 break
 
-        print("{harvester}: we got a harvest of {resources}!".format(
+        print(
+            "{harvester}: we got a harvest of {resources}."
+            " Carrying {carrying} out of {total}!".format(
+                carrying=carrying,
+                total=len(resources),
                 harvester=harvester,
                 resources=resources,
             )
         )
 
-        return True
+        return carrying
 
     def position(self):
         harvester = self._harvester()
