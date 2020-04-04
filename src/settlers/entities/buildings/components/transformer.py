@@ -4,11 +4,32 @@ from settlers.entities.components import Component
 
 
 class PipelineInput:
-    __slots__ = ['resource', 'storage']
+    __slots__ = ['quantity', 'resource', '_storage']
 
-    def __init__(self, resource, storage):
+    def __init__(self, quantity, resource, storage):
         self.resource = resource
-        self.storage = storage
+        self._storage = storage
+        self.quantity = quantity
+
+    def can_consume(self):
+        return self._storage.quantity() >= self.quantity
+
+    def consume(self):
+        consumed = 0
+        for quantity in range(self.quantity):
+            consumed = self._storage.remove()
+            if consumed:
+                consumed += 1
+
+        return consumed
+
+
+class PipelineOutput:
+    __slots__ = ['quantity', 'resource']
+
+    def __init__(self, quantity, resource):
+        self.quantity = quantity
+        self.resource = resource
 
 
 class Pipeline:
@@ -24,10 +45,26 @@ class Pipeline:
         self._reserved = False
         self.ticks_per_cycle = ticks_per_cycle
 
-    def build_output(self):
-        output = self.output()
-        self.output_storage.add(output)
-        return output
+    def consume_input(self):
+        for input in self.inputs:
+            if not input.can_consume():
+                return False
+
+        for input in self.inputs:
+            input.consume()
+
+    def build_outputs(self):
+        outputs = []
+
+        for _ in range(self.output.quantity):
+            output = self.output.resource()
+            added = self.output_storage.add(output)
+            if added:
+                outputs.append(output)
+            else:
+                break
+
+        return outputs
 
     def is_available(self):
         if self._reserved:
@@ -35,6 +72,11 @@ class Pipeline:
 
         if self.output_storage.is_full():
             return False
+
+        for input in self.inputs:
+            if not input.can_consume():
+                return False
+
         return True
 
     def reserve(self):
@@ -45,23 +87,29 @@ class Pipeline:
 
 
 class Storage:
-    __slots__ = ['capacity', 'storage']
+    __slots__ = ['capacity', '_storage']
 
     def __init__(self, capacity):
         self.capacity = capacity
-        self.storage = []
+        self._storage = []
 
     def add(self, item):
-        if len(self.storage) < self.capacity:
-            self.storage.append(item)
+        if len(self._storage) < self.capacity:
+            self._storage.append(item)
             return True
         return False
 
+    def is_empty(self):
+        return len(self._storage) == 0
+
     def is_full(self):
-        return len(self.storage) == self.capacity
+        return len(self._storage) == self.capacity
+
+    def quantity(self):
+        return len(self._storage)
 
     def remove(self):
-        self.storage.pop()
+        self._storage.pop()
 
 
 class WorkerProxy:
@@ -119,6 +167,9 @@ class WorkerProxy:
 
         if not self.pipeline:
             self.pick_pipeline()
+
+            if self.pipeline:
+                self.pipeline.consume_input()
             return False
 
         if self.ticks >= transformer.ticks_per_cycle_for(self.pipeline):
@@ -148,9 +199,11 @@ class Transformer(Component):
 
     def next_available_pipeline(self):
         for pipeline in self._pipelines:
-            if pipeline.is_available():
-                pipeline.reserve()
-                return pipeline
+            if not pipeline.is_available():
+                continue
+
+            pipeline.reserve()
+            return pipeline
 
     def position(self):
         self.owner.position
@@ -185,22 +238,22 @@ class Transformer(Component):
             if tick_completed:
                 pipeline = worker.pipeline
                 worker.pipeline = None
-                output = pipeline.build_output()
+                outputs = pipeline.build_outputs()
                 pipeline.unreserve()
 
-                worker.work_completed(output, 1)
+                worker.work_completed(pipeline.output.resource, len(outputs))
 
                 print(
-                    "{owner}#{self} worker {worker} has completed {output}"
+                    "{owner}#{self} worker {worker} has completed {quantity} {output}"
                     .format(
+                        output=pipeline.output.resource,
                         owner=self.owner,
+                        quantity=len(outputs),
                         self=self.__class__.__name__,
                         worker=worker,
-                        output=pipeline.output,
                     )
                 )
 
-            
         return True
 
     def ticks_per_cycle_for(self, pipeline):
