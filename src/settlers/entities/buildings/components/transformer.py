@@ -86,38 +86,6 @@ class Pipeline:
         self._reserved = False
 
 
-class Storage:
-    __slots__ = ['capacity', '_storage']
-
-    def __init__(self, capacity):
-        self.capacity = capacity
-        self._storage = []
-
-    def add(self, item):
-        if len(self._storage) < self.capacity:
-            self._storage.append(item)
-            return True
-        return False
-
-    def is_empty(self):
-        return len(self._storage) == 0
-
-    def is_full(self):
-        return len(self._storage) == self.capacity
-
-    def quantity(self):
-        return len(self._storage)
-
-    def pop(self):
-        self._storage.pop()
-
-    def remove(self, item):
-        self._storage.remove(item)
-
-    def __iter__(self):
-        return iter(self._storage)
-
-
 class WorkerProxy:
     __slots__ = [
         'cycles', 'pipeline', 'ticks', '_transformer', '_worker', '__weakref__'
@@ -233,9 +201,9 @@ class Transformer(Component):
         for worker in self._workers:
             tick_completed = worker.tick()
             if tick_completed is None:
-                print("{owner}#{self} worker {harvester} is dead.".format(
+                print("{owner}#{component} worker {harvester} is dead.".format(
                         owner=self.owner,
-                        self=self.__class__.__name__,
+                        component=self.__class__.__name__,
                         worker=worker,
                     )
                 )
@@ -250,12 +218,12 @@ class Transformer(Component):
                 worker.work_completed(pipeline.output.resource, len(outputs))
 
                 print(
-                    "{owner}#{self} worker {worker} has completed {quantity} {output}"
-                    .format(
+                    "{owner}#{component} worker {worker} has completed"
+                    " {quantity} {output}".format(
                         output=pipeline.output.resource,
                         owner=self.owner,
                         quantity=len(outputs),
-                        self=self.__class__.__name__,
+                        component=self.__class__.__name__,
                         worker=worker,
                     )
                 )

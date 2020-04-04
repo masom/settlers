@@ -38,9 +38,11 @@ class Mouvement(Component):
             raise
 
     def state_change(self, new_state):
-        print("{owner}#{component} state change: {old_state} -> {new_state}".format(
+        print(
+            "{owner}#{component} state change: "
+            "{old_state} -> {new_state}".format(
                 owner=self.owner,
-                component=self,
+                component=self.__class__.__name__,
                 old_state=self.state,
                 new_state=new_state
             )
@@ -68,10 +70,11 @@ class Mouvement(Component):
 
     def travel_to(self, destination):
         print(
-            "{owner} at {owner_position} moving to "
+            "{owner}#{component} at {owner_position} moving to "
             " {destination} at {destination_position}".format(
                 owner=self.owner,
                 owner_position=self.owner.position,
+                component=self.__class__.__name__,
                 destination=destination,
                 destination_position=destination.position,
             )
