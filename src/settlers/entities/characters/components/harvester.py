@@ -104,8 +104,9 @@ class Harvester(Component):
         if target.harvesting.provides() not in self.resources:
             raise RuntimeError('cannot harvest')
 
-        print("{owner}: Harvesting {target}".format(
+        print("{owner}#{component}: Harvesting {target}".format(
                 owner=self.owner,
+                component=self.__class__.__name__,
                 target=target
             )
         )
@@ -158,7 +159,7 @@ class Harvester(Component):
                 print(
                     "{owner}#{component} cannot deliver {resource} to"
                     " {destination} storage {destination_storage}".format(
-                        component=self,
+                        component=self.__class__.__name__,
                         owner=self.owner,
                         destination=destination,
                         destination_storage=input_storage
@@ -168,7 +169,7 @@ class Harvester(Component):
             "{owner}#{component} delivered: {delivered} and"
             " kept: {kept}".format(
                 owner=self.owner,
-                component=self,
+                component=self.__class__.__name__,
                 delivered=delivered,
                 kept=kept
             )
@@ -191,7 +192,7 @@ class Harvester(Component):
             "{owner}#{component} state change:"
             " {old_state} -> {new_state}".format(
                 owner=self.owner,
-                component=self,
+                component=self.__class__.__name__,
                 old_state=self.state,
                 new_state=new_state
             )
