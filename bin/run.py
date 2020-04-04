@@ -6,17 +6,19 @@ work_dir = pathlib.Path(__file__).resolve().parent.parent
 src_path = work_dir / 'src'
 
 sys.path.append(str(src_path))
-
 from settlers.entities.buildings import Building
+
 from settlers.entities.buildings.components.occupancy import Occupancy
 from settlers.entities.buildings.components.transformer import (
-    Transformer, Pipeline, PipelineInput, PipelineOutput, Storage
+    Transformer, Pipeline, PipelineInput, PipelineOutput
 )
 
+from settlers.entities.components.mouvement import Mouvement
 from settlers.entities.characters.components.worker import Worker
 from settlers.entities.characters.components.harvester import Harvester
 from settlers.entities.characters.villager import Villager
 
+from settlers.entities.resources import Storage
 from settlers.entities.resources.tree import Tree, TreeLog, Lumber
 
 
@@ -30,24 +32,35 @@ villagers = [
 
 tree = Tree(5, 100)
 
-sawmill_tree_logs_store = Storage(50)
-sawmill_tree_logs_store.add(TreeLog())
-sawmill_tree_logs_store.add(TreeLog())
 
-sawmill_pipelines = [
-    Pipeline(
-        [
-            PipelineInput(1, TreeLog, sawmill_tree_logs_store)
-        ],
-        PipelineOutput(5, Lumber),
-        Storage(8),
-        2
+def build_sawmill(name):
+    sawmill_storages = {
+        TreeLog: Storage(50),
+        Lumber: Storage(8),
+    }
+
+    sawmill_pipelines = [
+        Pipeline(
+            [
+                PipelineInput(1, TreeLog, sawmill_storages[TreeLog])
+            ],
+            PipelineOutput(5, Lumber, sawmill_storages[Lumber]),
+            2
+        )
+    ]
+
+    sawmill = Building(
+        "{name}'s Sawmill".format(name=name),
+        sawmill_storages
     )
-]
 
-sawmill = Building()
-sawmill.components.add((Occupancy, 1))
-sawmill.components.add((Transformer, sawmill_pipelines))
+    sawmill.components.add((Occupancy, 1))
+    sawmill.components.add((Transformer, sawmill_pipelines))
+
+    return sawmill
+
+
+sawmill = build_sawmill('Bob')
 
 buildings = [
     sawmill,
@@ -73,6 +86,7 @@ for entity in entities:
 
 # villager.harvesting.harvest(tree)
 villagers[0].working.work_at(sawmill)
+villagers[1].harvesting.assign_destination(sawmill)
 villagers[1].harvesting.harvest(tree)
 
 sawmill.transform.start()
