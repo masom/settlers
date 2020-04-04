@@ -32,6 +32,7 @@ tree = Tree(5, 100)
 
 sawmill_tree_logs_store = Storage(50)
 sawmill_tree_logs_store.add(TreeLog())
+sawmill_tree_logs_store.add(TreeLog())
 
 sawmill_pipelines = [
     Pipeline(
@@ -39,7 +40,7 @@ sawmill_pipelines = [
             PipelineInput(1, TreeLog, sawmill_tree_logs_store)
         ],
         PipelineOutput(5, Lumber),
-        Storage(2),
+        Storage(8),
         2
     )
 ]
@@ -64,14 +65,16 @@ entities.extend(villagers)
 max_ticks = 60
 
 for villager in villagers:
-    villager.components.add(Harvester)
+    villager.components.add((Harvester, [TreeLog], Storage(1)))
     villager.components.add(Worker)
 
 for entity in entities:
     entity.initialize()
 
 # villager.harvesting.harvest(tree)
-villager.working.work_at(sawmill)
+villagers[0].working.work_at(sawmill)
+villagers[1].harvesting.harvest(tree)
+
 sawmill.transform.start()
 
 for tick in range(max_ticks):

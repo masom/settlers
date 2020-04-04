@@ -20,20 +20,29 @@ class Harvester:
         resource = self.resource_ref()
         harvester = self.harvester_ref()
 
-        return resource.position() == harvester.position()
+        if not resource.position() == harvester.position():
+            return False
+
+        return harvester.can_harvest()
 
     def tick(self):
         resource = self.resource_ref()
         harvester = self.harvester_ref()
 
-        if resource is None or harvester is None:
-            self.request_unload(resource, harvester)
-            return None
-
         if not self.is_active():
             self.cycles = 0
             self.ticks = 0
             return False
+
+        if resource is None or harvester is None:
+            print("{resource} or {harvester} dead".format(
+                    harvester=harvester,
+                    resource=resource,
+                )
+            )
+
+            self.request_unload(resource, harvester)
+            return None
 
         if self.ticks >= resource.ticks_per_cycle:
             self.cycles += 1
@@ -43,10 +52,10 @@ class Harvester:
         self.ticks += 1
         return False
 
-    def resource_harvested(self, resource, quantity):
+    def resource_harvested(self, resources):
         harvester = self.harvester_ref()
-        self.harvested += quantity
-        harvester.notify_of_harvest(resource, quantity)
+        self.harvested += len(resources)
+        harvester.notify_of_harvest(resources)
 
     def harvester_stopped(self):
         resource = self.resource_ref()
@@ -82,7 +91,7 @@ class Harvestable(Component):
     ]
 
     exposed_as = 'harvesting'
-    exposed_methods = ['add_harvester', 'remove_harvester']
+    exposed_methods = ['add_harvester', 'provides', 'remove_harvester']
 
     def __init__(
         self, owner, target_attr, output, ticks_per_cycle,
@@ -103,8 +112,11 @@ class Harvestable(Component):
 
         self._harvesters.append(Harvester(self, entity))
 
-    def build_output(self):
-        return self.output()
+    def build_output(self, quantity):
+        return [self.output() for _ in range(quantity)]
+
+    def provides(self):
+        return self.output
 
     def remove_harvester(self, entity):
         for harvester in self._harvesters:
@@ -116,7 +128,7 @@ class Harvestable(Component):
         self.harvesters.remove(harvester)
 
     def position(self):
-        self.owner.position
+        return self.owner.position
 
     def tick(self):
         if len(self._harvesters) == 0:
@@ -140,9 +152,9 @@ class Harvestable(Component):
             if tick_completed:
                 change_to = value - self.harvest_value_per_cycle
                 value = max(0, change_to)
+                harvested = min(self.harvest_value_per_cycle, value)
                 harvester.resource_harvested(
-                    self.build_output(),
-                    min(self.harvest_value_per_cycle, value)
+                    self.build_output(harvested)
                 )
 
             if value == 0:
