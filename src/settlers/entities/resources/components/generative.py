@@ -5,7 +5,7 @@ class Generative(Component):
     __slots__ = [
         'cycles',
         'increase_per_cycle',
-        'max_cycles'
+        'max_cycles',
         'max_value',
         'target_attr',
         'ticks',

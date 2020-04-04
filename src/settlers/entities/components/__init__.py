@@ -134,5 +134,7 @@ class ComponentProxy:
 
 
 class Component:
+    __slots__ = ['owner', '__weakref__']
+
     def __init__(self, owner):
         self.owner = owner

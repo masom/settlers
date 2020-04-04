@@ -2,11 +2,14 @@ import weakref
 
 from settlers.entities.components import Component
 
+HARVESTER_STATE_IDLE = 'idle'
+HARVESTER_STATE_HARVESTING = 'harvesting'
+
 
 class Harvester:
     __slots__ = [
-        'active', 'cycles', 'harvester_ref', 'harvested', 'resource_ref',
-        'ticks'
+        'cycles', 'harvester_ref', 'harvested', 'resource_ref',
+        'state', 'ticks'
     ]
 
     def __init__(self, resource, harvester):
@@ -15,15 +18,22 @@ class Harvester:
         self.resource_ref = weakref.ref(resource)
         self.ticks = 0
         self.harvested = 0
+        self.state = HARVESTER_STATE_IDLE
 
     def is_active(self):
         resource = self.resource_ref()
         harvester = self.harvester_ref()
 
         if not resource.position() == harvester.position():
+            self.state_change(HARVESTER_STATE_IDLE)
             return False
 
-        return harvester.can_harvest()
+        if not harvester.can_harvest():
+            self.state_change(HARVESTER_STATE_IDLE)
+            return False
+
+        self.state_change(HARVESTER_STATE_HARVESTING)
+        return True
 
     def tick(self):
         resource = self.resource_ref()
@@ -43,6 +53,8 @@ class Harvester:
 
             self.request_unload(resource, harvester)
             return None
+
+        self.state_change(HARVESTER_STATE_HARVESTING)
 
         if self.ticks >= resource.ticks_per_cycle:
             self.cycles += 1
@@ -79,6 +91,23 @@ class Harvester:
 
         if harvester:
             harvester.harvesting.resource_unloaded(self)
+
+    def state_change(self, new_state):
+        if self.state == new_state:
+            return
+
+        resource = self.resource_ref()
+
+        print(
+            "{owner}#{component} state change:"
+            " {old_state} -> {new_state}".format(
+                owner=resource,
+                component=self,
+                old_state=self.state,
+                new_state=new_state
+            )
+        )
+        self.state = new_state
 
 
 class Harvestable(Component):
@@ -159,9 +188,6 @@ class Harvestable(Component):
 
                 change_to = value - harvested
                 value = max(0, change_to)
-
-            if value == 0:
-                harvester.active = False
 
         setattr(self.owner, self.target_attr, value)
         return True

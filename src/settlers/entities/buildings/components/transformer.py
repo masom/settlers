@@ -17,7 +17,7 @@ class PipelineInput:
     def consume(self):
         consumed = 0
         for quantity in range(self.quantity):
-            consumed = self._storage.remove()
+            consumed = self._storage.pop()
             if consumed:
                 consumed += 1
 
@@ -25,23 +25,23 @@ class PipelineInput:
 
 
 class PipelineOutput:
-    __slots__ = ['quantity', 'resource']
+    __slots__ = ['quantity', 'storage', 'resource']
 
-    def __init__(self, quantity, resource):
-        self.quantity = quantity
+    def __init__(self, quantity, resource, storage):
         self.resource = resource
+        self.storage = storage
+        self.quantity = quantity
 
 
 class Pipeline:
     __slots__ = [
-        'inputs', 'output', 'output_storage',
+        'inputs', 'output',
         '_reserved', 'ticks_per_cycle'
     ]
 
-    def __init__(self, inputs, output, output_storage, ticks_per_cycle):
+    def __init__(self, inputs, output, ticks_per_cycle):
         self.inputs = inputs
         self.output = output
-        self.output_storage = output_storage
         self._reserved = False
         self.ticks_per_cycle = ticks_per_cycle
 
@@ -58,7 +58,7 @@ class Pipeline:
 
         for _ in range(self.output.quantity):
             output = self.output.resource()
-            added = self.output_storage.add(output)
+            added = self.output.storage.add(output)
             if added:
                 outputs.append(output)
             else:
@@ -70,7 +70,7 @@ class Pipeline:
         if self._reserved:
             return False
 
-        if self.output_storage.is_full():
+        if self.output.storage.is_full():
             return False
 
         for input in self.inputs:
@@ -108,8 +108,14 @@ class Storage:
     def quantity(self):
         return len(self._storage)
 
-    def remove(self):
+    def pop(self):
         self._storage.pop()
+
+    def remove(self, item):
+        self._storage.remove(item)
+
+    def __iter__(self):
+        return iter(self._storage)
 
 
 class WorkerProxy:
