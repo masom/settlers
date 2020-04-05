@@ -26,10 +26,23 @@ class TransporterProxy:
         worker = self.worker()
 
         if self._common_route_items is None:
-            destination_items = set(destination.storages.keys())
+            accepted_resources = [
+                r for (r, s) in destination.storages.items()
+                if s.allows_incoming
+            ]
+
+            destination_items = set(accepted_resources)
             worker_items = set(worker.resources.keys())
+
             self._common_route_items = worker_items.intersection(
                 destination_items
+            )
+
+            print("{self}#{component} matching items: {items}".format(
+                    self=worker,
+                    component=self.__class__.__name__,
+                    items=self._common_route_items,
+                )
             )
         return self._common_route_items
 
@@ -136,6 +149,9 @@ class Transport(Component):
             if not worker.position() == destination.position:
                 return
 
+            if not destination.can_receive_resources():
+                return
+
             print(
                 "{self}#{component} transported"
                 " from {source} to {destination}".format(
@@ -150,7 +166,7 @@ class Transport(Component):
 
             accepted = []
             rejected = []
-#                if hasattr(destination, 'construction'):
+
             for resource in resources:
                 storage = self.resources[resource]
                 while not storage.is_empty():
@@ -159,7 +175,7 @@ class Transport(Component):
                         rejected.append(item)
                         continue
 
-                    if destination.construction.receive_resource(item):
+                    if destination.receive_resource(item):
                         accepted.append(item)
                         continue
 
@@ -227,3 +243,10 @@ class Transport(Component):
         if self.state == STATE_TRANSPORTING:
             self.handle_transport_tick(destination, source)
             return
+
+    def __repr__(self):
+        return "<{owner}#{klass} {id}>".format(
+            klass=self.__class__.__name__,
+            owner=self.owner,
+            id=hex(id(self)),
+        )

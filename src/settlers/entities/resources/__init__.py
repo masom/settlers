@@ -6,9 +6,11 @@ class Resource(Entity):
 
 
 class Storage:
-    __slots__ = ['capacity', '_storage']
+    __slots__ = ['allows_incoming', 'allows_outgoing', 'capacity', '_storage']
 
-    def __init__(self, capacity):
+    def __init__(self, allows_incoming, allows_outgoing, capacity):
+        self.allows_incoming = allows_incoming
+        self.allows_outgoing = allows_outgoing
         self.capacity = capacity
         self._storage = []
 

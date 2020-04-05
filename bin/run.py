@@ -1,6 +1,7 @@
 import pathlib
 import pdb
 import sys
+import names
 
 work_dir = pathlib.Path(__file__).resolve().parent.parent
 src_path = work_dir / 'src'
@@ -33,7 +34,7 @@ def build_construction_site(spec):
     storages = {}
 
     for resource, quantity in spec.construction_resources.items():
-        storages[resource] = Storage(quantity)
+        storages[resource] = Storage(True, False, quantity)
 
     construction_site = Building(
         spec.name,
@@ -49,8 +50,8 @@ def build_construction_site(spec):
 
 def build_sawmill_construction_site(name):
     sawmill_storages = {
-        TreeLog: Storage(50),
-        Lumber: Storage(8),
+        TreeLog: Storage(True, False, 10),
+        Lumber: Storage(False, True, 50),
     }
 
     sawmill_pipelines = [
@@ -74,7 +75,7 @@ def build_sawmill_construction_site(name):
         {
             Lumber: 10,
         },
-        10,
+        4,
         "Jello's Sawmill",
         sawmill_storages
     ))
@@ -82,8 +83,8 @@ def build_sawmill_construction_site(name):
 
 def build_sawmill(name):
     sawmill_storages = {
-        TreeLog: Storage(50),
-        Lumber: Storage(8),
+        TreeLog: Storage(True, False, 10),
+        Lumber: Storage(False, True, 50),
     }
 
     sawmill_pipelines = [
@@ -125,12 +126,13 @@ entities = []
 entities.extend(buildings)
 entities.extend(resources)
 
-max_ticks = 20
+max_ticks = 30
 
 villagers = []
-for i in range(2):
-    villager = Villager(i)
-    transport_storage = Storage(5)
+for i in range(4):
+    name = names.get_full_name()
+    villager = Villager(name)
+    transport_storage = Storage(True, True, 5)
 
     transport_resources = {
         TreeLog: transport_storage,
@@ -151,11 +153,11 @@ for entity in entities:
 
 villagers[0].harvesting.harvest(tree)
 villagers[0].harvesting.assign_destination(sawmill)
-villagers[0].working.work_at(sawmill)
+villagers[1].working.work_at(sawmill)
 
-villagers[1].construction.build(construction_site)
-villagers[1].transport.pickup_from(sawmill)
-villagers[1].transport.assign_destination(construction_site)
+villagers[2].construction.build(construction_site)
+villagers[3].transport.pickup_from(sawmill)
+villagers[3].transport.assign_destination(construction_site)
 
 sawmill.transform.start()
 

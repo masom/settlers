@@ -10,3 +10,10 @@ class Villager(Character):
     def __init__(self, name):
         super().__init__()
         self.name = name
+
+    def __repr__(self):
+        return "<{klass} {name} {id}>".format(
+            klass=self.__class__,
+            name=self.name,
+            id=hex(id(self)),
+        )
