@@ -1,4 +1,4 @@
-from settlers.entities.components import Component
+from . import Component
 
 STATUS_HEALTHY = 'healthy'
 STATUS_SICK = 'sick'

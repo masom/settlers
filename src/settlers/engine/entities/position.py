@@ -1,6 +1,3 @@
-from settlers.entities.components import Components
-
-
 class Position:
     __slots__ = ['x', 'y']
 
@@ -20,17 +17,3 @@ class Position:
             x=self.x,
             y=self.y,
         )
-
-
-class Entity:
-    components = []
-
-    def __init__(self):
-        self.components = Components(self)
-        self.position = Position(-1, -1)
-
-    def initialize(self):
-        self.components.initialize()
-
-    def tick(self):
-        self.components.tick()
