@@ -63,7 +63,7 @@ class Construction(Component):
     ]
 
     exposed_as = 'construction'
-    exposed_methods = ['add_builder', 'receive_resource', 'required_abilities']
+    exposed_methods = ['add_builder', 'required_abilities']
 
     def __init__(self, owner, spec):
         super().__init__(owner)
@@ -80,14 +80,10 @@ class Construction(Component):
             return False
 
         for resource, quantity in self.spec.construction_resources.items():
-            storage = self.spec.storages[resource]
+            storage = self.owner.storages[resource]
             if not storage.is_full():
                 return False
         return True
-
-    def receive_resource(self, resource):
-        storage = self.spec.storages[resource.__class__]
-        return storage.add(resource)
 
     def required_abilities(self):
         return self.spec.construction_abilities
@@ -131,6 +127,10 @@ class Construction(Component):
                 builder.notify_of_building_completion()
 
             self.owner.components.remove(self)
+            self.owner.storages = {}
+
+            for resource, storage in self.spec.storages.items():
+                self.owner.storages[resource] = storage
 
             for component in self.spec.components:
                 self.owner.components.add(component)
