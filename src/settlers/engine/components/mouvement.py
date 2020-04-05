@@ -1,7 +1,5 @@
 import weakref
-
-from settlers.entities.components import Component
-
+from . import Component
 
 STATE_IDLE = 'idle'
 STATE_MOVING = 'moving'

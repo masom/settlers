@@ -91,6 +91,9 @@ class Components:
             else:
                 delattr(self.owner, exposed_as)
 
+    def __iter__(self):
+        return iter(self.components)
+
 
 class ComponentProxy:
     __slots__ = ['_alias', '_component', '_exposed_methods', '_owner']

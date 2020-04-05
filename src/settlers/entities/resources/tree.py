@@ -1,6 +1,8 @@
-from settlers.entities.resources import Resource
-from settlers.entities.resources.components.generative import Generative
-from settlers.entities.resources.components.harvestable import Harvestable
+from . import Resource
+from settlers.engine.entities.resources.components.generative import Generative
+from settlers.engine.entities.resources.components.harvestable import (
+    Harvestable
+)
 
 
 class Lumber(Resource):
@@ -28,3 +30,9 @@ class Tree(Resource):
         )
 
         super().initialize()
+
+    def __repr__(self):
+        return "<{self} {id}>".format(
+            self=self.__class__,
+            id=hex(id(self)),
+        )

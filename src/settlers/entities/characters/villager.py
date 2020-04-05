@@ -1,14 +1,18 @@
-from .character import Character
+import names
 
-from settlers.entities.components.mouvement import Mouvement
+from settlers.engine.entities.entity import Entity
 
 
-class Villager(Character):
+class Villager(Entity):
     __slots__ = ['name']
-    components = [Mouvement]
+    components = []
 
-    def __init__(self, name):
+    def __init__(self, name=None):
         super().__init__()
+
+        if not name:
+            name = names.get_full_name()
+
         self.name = name
 
     def __repr__(self):

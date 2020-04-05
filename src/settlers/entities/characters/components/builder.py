@@ -1,6 +1,6 @@
 import weakref
 
-from settlers.entities.components import Component
+from settlers.engine.components import Component
 
 
 BUILDER_ABILITY_CARPENTER = 'carpenter'
