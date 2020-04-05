@@ -13,21 +13,10 @@ class Components:
             if not hasattr(parent_class, 'components'):
                 return
 
-            for component_class in parent_class.components:
-                self._register_component(component_class)
+            for component_definition in parent_class.components:
+                self.add(component_definition)
 
-    def add(self, component):
-        print(
-            "{owner}#{self} adding {component}".format(
-                owner=self.owner,
-                self=self.__class__.__name__,
-                component=component,
-            )
-        )
-
-        self._register_component(component)
-
-    def _register_component(self, component_definition):
+    def add(self, component_definition):
         print(
             "{owner} registering {component}".format(
                 owner=self.owner,
@@ -102,11 +91,6 @@ class Components:
             else:
                 delattr(self.owner, exposed_as)
 
-    def tick(self):
-        for component_instance in self.components:
-            if hasattr(component_instance, 'tick'):
-                component_instance.tick()
-
 
 class ComponentProxy:
     __slots__ = ['_alias', '_component', '_exposed_methods', '_owner']
@@ -115,17 +99,6 @@ class ComponentProxy:
         self._component = component
         self._exposed_methods = component.exposed_methods
         self._owner = owner
-
-        print(
-            "ComponentProxy on {owner} enabled for component {component}, "
-            "as {alias}, and "
-            "exposing {exposed_methods}".format(
-                alias=component.exposed_as,
-                component=component,
-                exposed_methods=self._exposed_methods,
-                owner=owner,
-            )
-        )
 
     def __getattr__(self, attr):
         if attr in self._exposed_methods:

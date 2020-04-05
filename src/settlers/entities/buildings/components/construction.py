@@ -11,7 +11,7 @@ BUILDER_STATE_WORKING = 'working'
 
 class ConstructionSpec:
     __slots__ = [
-        'components', 'construction_resources', 
+        'components', 'construction_resources',
         'construction_abilities', 'construction_ticks',
         'name', 'storages'
     ]
@@ -27,14 +27,16 @@ class ConstructionSpec:
         self.name = name
         self.storages = storages
 
+    def __del__(self):
+        print("{self} we going down!".format(self=self))
+
 
 class BuilderProxy:
-    __slots__ = ['_building', 'cycles', 'state', 'ticks', '_worker']
+    __slots__ = ['_building', 'cycles', 'state', '_worker']
 
     def __init__(self, building, worker):
         self._building = building
         self.state = BUILDER_STATE_IDLE
-        self.ticks = 0
         self._worker = weakref.ref(worker)
 
     def notify_of_building_completion(self):
@@ -47,11 +49,57 @@ class BuilderProxy:
         self._building = None
         self._worker = None
 
-    def tick(self):
-        self.ticks += 1
-
     def __del__(self):
         print("{self} we going down!".format(self=self))
+
+
+class ConstructionSystem:
+    def process(self, buildings):
+        for building in buildings:
+            if not self.can_build(building):
+                continue
+
+            if building.state == STATE_NEW:
+                building.state_change(STATE_IN_PROGRESS)
+                continue
+
+            if building.state == STATE_IN_PROGRESS:
+                building.ticks += 1
+
+                if not building.is_completed():
+                    building.state_change(STATE_COMPLETED)
+                    continue
+
+            if building.state == STATE_COMPLETED:
+                for builder in building.workers:
+                    builder.notify_of_building_completion()
+
+                self.complete(building)
+
+    def can_build(self, building):
+        if len(building.workers) == 0:
+            return False
+
+        for resource, quantity in building.construction_resources.items():
+            storage = building.storages[resource]
+            if not storage.is_full():
+                return False
+
+        return True
+
+    def complete(self, building):
+        building.owner.components.remove(building)
+        building.owner.storages = {}
+
+        for resource, storage in building.spec.storages.items():
+            building.owner.storages[resource] = storage
+
+        for component in building.spec.components:
+            building.owner.components.add(component)
+
+        building.workers = []
+        building.spec = None
+        building.owner = None
 
 
 class Construction(Component):
@@ -59,7 +107,7 @@ class Construction(Component):
         'spec',
         'state',
         'ticks',
-        '_workers'
+        'workers'
     ]
 
     exposed_as = 'construction'
@@ -67,23 +115,19 @@ class Construction(Component):
 
     def __init__(self, owner, spec):
         super().__init__(owner)
-        self._workers = []
+        self.workers = []
         self.spec = spec
         self.state = STATE_NEW
         self.ticks = 0
 
-    def add_builder(self, builder):
-        self._workers.append(BuilderProxy(self, builder))
+    def add_worker(self, builder):
+        self.workers.append(BuilderProxy(self, builder))
 
-    def can_build(self):
-        if len(self._workers) == 0:
-            return False
+    def construction_resources(self):
+        return self.spec.construction_resources
 
-        for resource, quantity in self.spec.construction_resources.items():
-            storage = self.owner.storages[resource]
-            if not storage.is_full():
-                return False
-        return True
+    def is_completed(self):
+        return self.ticks >= self.spec.construction_ticks
 
     def required_abilities(self):
         return self.spec.construction_abilities
@@ -102,38 +146,3 @@ class Construction(Component):
             )
         )
         self.state = new_state
-
-    def tick(self):
-        if self.state == STATE_NEW:
-            if self.can_build():
-                self.state_change(STATE_IN_PROGRESS)
-            return
-
-        if self.state == STATE_IN_PROGRESS:
-            if len(self._workers) < 1:
-                return
-
-            self.ticks += 1
-
-            for worker in self._workers:
-                worker.tick()
-
-            if self.ticks >= self.spec.construction_ticks:
-                self.state_change(STATE_COMPLETED)
-                return
-
-        if self.state == STATE_COMPLETED:
-            for builder in self._workers:
-                builder.notify_of_building_completion()
-
-            self.owner.components.remove(self)
-            self.owner.storages = {}
-
-            for resource, storage in self.spec.storages.items():
-                self.owner.storages[resource] = storage
-
-            for component in self.spec.components:
-                self.owner.components.add(component)
-
-            self._workers = []
-            self.spec = None
