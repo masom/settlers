@@ -1,6 +1,41 @@
 from settlers.entities.components import Component
 
 
+class GenerativeSystem:
+    def process(self, generators):
+        for generator in generators:
+            value = getattr(generator.owner, generator.target_attr)
+            if value >= self.max_value:
+                continue
+
+            if not generator.unlimited:
+                if generator.cycles > generator.max_cycles:
+                    # TODO remove the generator from that entity
+                    continue
+
+                if generator.ticks < generator.ticks_per_cycle:
+                    generator.ticks += 1
+                    continue
+
+                generator.cycles += 1
+                generator.ticks = 0
+
+                value += generator.increase_per_cycle
+
+            print(
+                "{owner}#{self} increasing {attr}"
+                " by {increase} to {value}".format(
+                    attr=self.target_attr,
+                    increase=generator.increase_per_cycle,
+                    owner=self.owner,
+                    self=self.__class__.__name__,
+                    value=value,
+                )
+            )
+
+            setattr(generator.owner, generator.target_attr, value)
+
+
 class Generative(Component):
     __slots__ = [
         'cycles',
@@ -22,34 +57,8 @@ class Generative(Component):
         self.cycles = 0
         self.increase_per_cycle = increase_per_cycle
         self.max_cycles = max_cycles
-        self.unlimited = max_cycles < 0
         self.max_value = max_value
-        self.ticks = 0
         self.target_attr = target_attr
-        self.ticks_per_cycle = ticks_per_cycle
-
-    def tick(self):
-        value = getattr(self.owner, self.target_attr)
-        if value >= self.max_value:
-            return True
-
-        if not self.unlimited and self.cycles > self.max_cycles:
-            return False
-
-        if self.ticks < self.ticks_per_cycle:
-            self.ticks += 1
-            return True
-
-        self.cycles += 1
         self.ticks = 0
-
-        value += 1
-
-        print("{owner}#{self} increasing {attr} to {value}".format(
-            attr=self.target_attr,
-            owner=self.owner,
-            self=self.__class__.__name__,
-            value=value,
-        ))
-        setattr(self.owner, self.target_attr, value)
-        return True
+        self.ticks_per_cycle = ticks_per_cycle
+        self.unlimited = max_cycles < 0

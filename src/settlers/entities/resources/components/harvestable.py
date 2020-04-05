@@ -6,97 +6,101 @@ HARVESTER_STATE_IDLE = 'idle'
 HARVESTER_STATE_HARVESTING = 'harvesting'
 
 
+class HarvestableSystem:
+    def process(self, harvestables):
+        for harvestable in harvestables:
+            if not harvestable.workers:
+                continue
+
+            value = getattr(harvestable.owner, harvestable.target_attr)
+            if value <= 0:
+                continue
+
+            for worker in harvestable.workers:
+                change = self.process_worker(worker)
+                if change == 0:
+                    continue
+
+                value = max(0, value - change)
+
+            setattr(harvestable.owner, harvestable.target_attr, value)
+
+    def build_output(self, harvester, quantity):
+        return [harvester.output() for _ in range(quantity)]
+
+    def process_worker(self, harvestable, worker):
+        resource = harvestable.output
+
+        if not worker.is_active() or not worker.can_harvest(resource):
+            self.state_change(HARVESTER_STATE_IDLE)
+            worker.ticks = 0
+            return 0
+
+        worker.state_change(HARVESTER_STATE_HARVESTING)
+
+        if worker.ticks < harvestable.ticks_per_cycle:
+            worker.ticks += 1
+            return 0
+
+        worker.ticks = 0
+
+        value = getattr(harvestable.owner, harvestable.target_attr)
+
+        possible_harvest_quantity = min(
+            harvestable.harvest_value_per_cycle,
+            value
+        )
+
+        worker_capacity = worker.inventory_available_for(resource)
+
+        harvested_quantity = min(possible_harvest_quantity, worker_capacity)
+
+        harvest = [harvestable.output() for _ in range(harvested_quantity)]
+
+        print(
+            "{system}#{harvestable} {harvested_quantity} {resource}"
+            " has been collected by {worker}".format(
+                harvestable={harvestable},
+                harvested_quantity=harvested_quantity,
+                resource=resource,
+                system=self.__class__.__name__,
+                worker=worker,
+            )
+        )
+
+        return harvested_quantity
+
+
 class Harvester:
     __slots__ = [
-        'cycles', 'harvester_ref', 'harvested', 'resource_ref',
+        'cycles', 'harvester', 'harvested', 'resource',
         'state', 'ticks'
     ]
 
     def __init__(self, resource, harvester):
         self.cycles = 0
-        self.harvester_ref = weakref.ref(harvester)
-        self.resource_ref = weakref.ref(resource)
+        self.harvester = weakref.ref(harvester)
+        self.resource = weakref.ref(resource)
         self.ticks = 0
         self.harvested = 0
         self.state = HARVESTER_STATE_IDLE
 
     def is_active(self):
-        resource = self.resource_ref()
-        harvester = self.harvester_ref()
+        resource = self.resource()
+        harvester = self.harvester()
 
         if not resource.position() == harvester.position():
-            self.state_change(HARVESTER_STATE_IDLE)
             return False
 
         if not harvester.can_harvest():
-            self.state_change(HARVESTER_STATE_IDLE)
             return False
-
-        self.state_change(HARVESTER_STATE_HARVESTING)
         return True
-
-    def tick(self):
-        resource = self.resource_ref()
-        harvester = self.harvester_ref()
-
-        if not self.is_active():
-            self.cycles = 0
-            self.ticks = 0
-            return False
-
-        if resource is None or harvester is None:
-            print("{resource} or {harvester} dead".format(
-                    harvester=harvester,
-                    resource=resource,
-                )
-            )
-
-            self.request_unload(resource, harvester)
-            return None
-
-        self.state_change(HARVESTER_STATE_HARVESTING)
-
-        if self.ticks >= resource.ticks_per_cycle:
-            self.cycles += 1
-            self.ticks = 0
-            return True
-
-        self.ticks += 1
-        return False
-
-    def resource_harvested(self, resources):
-        harvester = self.harvester_ref()
-        actual_harvest = harvester.notify_of_harvest(resources)
-        self.harvested += actual_harvest
-        return actual_harvest
-
-    def harvester_stopped(self):
-        resource = self.resource_ref()
-        if not resource:
-            return
-
-        resource.harvester_unloaded(self)
-
-    def request_unload(self):
-        resource = self.resource_ref()
-        harvester = self.harvester_ref()
-
-        print("{resource} or {harvester} is dead".format(
-            resource=resource,
-            harvester=harvester,
-        ))
-
-        if resource:
-            resource.harvesting.harvester_unloaded(self)
-
-        if harvester:
-            harvester.harvesting.resource_unloaded(self)
 
     def state_change(self, new_state):
         if self.state == new_state:
             return
 
-        resource = self.resource_ref()
+        resource = self.resource()
 
         print(
             "{owner}#{component} state change:"
@@ -112,7 +116,7 @@ class Harvester:
 
 class Harvestable(Component):
     __slots__ = [
-        '_harvesters',
+        'harvesters',
         'harvest_value_per_cycle',
         'max_harvesters',
         'output',
@@ -129,7 +133,7 @@ class Harvestable(Component):
     ):
         super().__init__(owner)
 
-        self._harvesters = []
+        self.harvesters = []
         self.harvest_value_per_cycle = harvest_value_per_cycle
         self.max_harvesters = max_harvesters
         self.output = output
@@ -137,13 +141,10 @@ class Harvestable(Component):
         self.ticks_per_cycle = ticks_per_cycle
 
     def add_harvester(self, entity):
-        if len(self._harvesters) > self.max_harvesters:
+        if len(self.harvesters) > self.max_harvesters:
             raise
 
-        self._harvesters.append(Harvester(self, entity))
-
-    def build_output(self, quantity):
-        return [self.output() for _ in range(quantity)]
+        self.harvesters.append(Harvester(self, entity))
 
     def provides(self):
         return self.output
@@ -154,40 +155,5 @@ class Harvestable(Component):
                 harvester.request_unload()
                 return
 
-    def harvester_unloaded(self, harvester):
-        self.harvesters.remove(harvester)
-
     def position(self):
         return self.owner.position
-
-    def tick(self):
-        if len(self._harvesters) == 0:
-            return False
-
-        value = getattr(self.owner, self.target_attr)
-        if value <= 0:
-            return False
-
-        for harvester in self._harvesters:
-            tick_completed = harvester.tick()
-            if tick_completed is None:
-                print("{owner}#{self} harvester {harvester} is dead.".format(
-                        owner=self.owner,
-                        self=self.__class__.__name__,
-                        harvester=harvester,
-                    )
-                )
-                next
-
-            if tick_completed:
-                possible_harvest = min(self.harvest_value_per_cycle, value)
-
-                harvested = harvester.resource_harvested(
-                    self.build_output(possible_harvest)
-                )
-
-                change_to = value - harvested
-                value = max(0, change_to)
-
-        setattr(self.owner, self.target_attr, value)
-        return True
