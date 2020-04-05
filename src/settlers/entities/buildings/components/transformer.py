@@ -17,8 +17,8 @@ class PipelineInput:
     def consume(self):
         consumed = 0
         for quantity in range(self.quantity):
-            consumed = self._storage.pop()
-            if consumed:
+            consumed_item = self._storage.pop()
+            if consumed_item:
                 consumed += 1
 
         return consumed

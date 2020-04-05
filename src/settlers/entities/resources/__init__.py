@@ -28,10 +28,10 @@ class Storage:
         return len(self._storage)
 
     def pop(self):
-        self._storage.pop()
+        return self._storage.pop()
 
     def remove(self, item):
-        self._storage.remove(item)
+        return self._storage.remove(item)
 
     def __iter__(self):
         return iter(self._storage)

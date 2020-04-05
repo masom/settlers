@@ -21,22 +21,12 @@ from settlers.entities.characters.components.builder import (
     Builder, BUILDER_ABILITY_CARPENTER
 )
 from settlers.entities.characters.components.harvester import Harvester
+from settlers.entities.characters.components.transport import Transport
 from settlers.entities.characters.components.worker import Worker
 from settlers.entities.characters.villager import Villager
 
 from settlers.entities.resources import Storage
 from settlers.entities.resources.tree import Tree, TreeLog, Lumber
-
-
-bob = Villager()
-sarah = Villager()
-
-villagers = [
-    bob,
-    sarah,
-]
-
-tree = Tree(5, 100)
 
 
 def build_construction_site(spec):
@@ -120,6 +110,8 @@ def build_sawmill(name):
 sawmill = build_sawmill('Bob')
 construction_site = build_sawmill_construction_site('Jello')
 
+tree = Tree(5, 100)
+
 buildings = [
     sawmill,
     construction_site
@@ -132,23 +124,38 @@ resources = [
 entities = []
 entities.extend(buildings)
 entities.extend(resources)
-entities.extend(villagers)
 
 max_ticks = 20
 
-for villager in villagers:
-    villager.components.add((Harvester, [TreeLog], Storage(1)))
+villagers = []
+for i in range(2):
+    villager = Villager(i)
+    transport_storage = Storage(5)
+
+    transport_resources = {
+        TreeLog: transport_storage,
+        Lumber: transport_storage,
+    }
+
+    villager.components.add((Harvester, [TreeLog], transport_storage))
     villager.components.add(Worker)
     villager.components.add((Builder, [BUILDER_ABILITY_CARPENTER]))
+    villager.components.add((Transport, transport_resources))
+
+    villagers.append(villager)
+
+entities.extend(villagers)
 
 for entity in entities:
     entity.initialize()
 
-# villager.harvesting.harvest(tree)
-#villagers[0].working.work_at(sawmill)
-villagers[0].construction.build(construction_site)
-#villagers[1].harvesting.assign_destination(sawmill)
-#villagers[1].harvesting.harvest(tree)
+villagers[0].harvesting.harvest(tree)
+villagers[0].harvesting.assign_destination(sawmill)
+villagers[0].working.work_at(sawmill)
+
+villagers[1].construction.build(construction_site)
+villagers[1].transport.pickup_from(sawmill)
+villagers[1].transport.assign_destination(construction_site)
 
 sawmill.transform.start()
 

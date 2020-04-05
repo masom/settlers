@@ -63,7 +63,7 @@ class Construction(Component):
     ]
 
     exposed_as = 'construction'
-    exposed_methods = ['add_builder', 'required_abilities']
+    exposed_methods = ['add_builder', 'receive_resource', 'required_abilities']
 
     def __init__(self, owner, spec):
         super().__init__(owner)
@@ -74,6 +74,20 @@ class Construction(Component):
 
     def add_builder(self, builder):
         self._workers.append(BuilderProxy(self, builder))
+
+    def can_build(self):
+        if len(self._workers) == 0:
+            return False
+
+        for resource, quantity in self.spec.construction_resources.items():
+            storage = self.spec.storages[resource]
+            if not storage.is_full():
+                return False
+        return True
+
+    def receive_resource(self, resource):
+        storage = self.spec.storages[resource.__class__]
+        return storage.add(resource)
 
     def required_abilities(self):
         return self.spec.construction_abilities
@@ -95,7 +109,7 @@ class Construction(Component):
 
     def tick(self):
         if self.state == STATE_NEW:
-            if len(self._workers) > 0:
+            if self.can_build():
                 self.state_change(STATE_IN_PROGRESS)
             return
 
