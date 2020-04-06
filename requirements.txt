@@ -1,2 +1,4 @@
+colorama
 flake8
 names
+structlog

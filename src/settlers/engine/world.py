@@ -1,9 +1,10 @@
 class World:
-    __slots__ = ['entities', 'systems']
+    __slots__ = ['entities', 'random_seed', 'systems']
 
-    def __init__(self):
+    def __init__(self, random_seed=None):
         self.entities = []
         self.systems = []
+        self.random_seed = random_seed
 
     def add_system(self, system):
         self.systems.append(system)

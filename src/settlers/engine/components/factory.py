@@ -100,6 +100,9 @@ class Worker(Component):
         if self.workplace:
             raise RuntimeError('already working')
 
+        if not target.can_add_worker():
+            return False
+
         print("{owner}: Working at {target}".format(
                 owner=self.owner,
                 target=target
@@ -107,7 +110,7 @@ class Worker(Component):
         )
 
         self.workplace = weakref.ref(target)
-        target.add_worker(self)
+        return target.add_worker(self)
 
     def state_change(self, new_state):
         if self.state == new_state:
@@ -168,7 +171,9 @@ class Factory(Component):
     ]
 
     exposed_as = 'factory'
-    exposed_methods = ['add_worker', 'remote_worker', 'start', 'stop']
+    exposed_methods = [
+        'add_worker', 'can_add_worker', 'remote_worker', 'start', 'stop'
+    ]
 
     def __init__(self, owner, pipelines, max_workers):
         super().__init__(owner)
@@ -179,11 +184,14 @@ class Factory(Component):
         self.workers = []
 
     def add_worker(self, worker):
-        if len(self.workers) > self.max_workers:
+        if not self.can_add_worker():
             return False
 
         self.workers.append(WorkerProxy(self, worker))
         return True
+
+    def can_add_worker(self):
+        return len(self.workers) < self.max_workers
 
     def position(self):
         self.owner.position
