@@ -1,7 +1,9 @@
 import random
 from settlers.engine.components import Component
+from settlers.engine.components.factory import (
+    Worker
+)
 from settlers.engine.components.harvesting import (
-    Harvestable,
     Harvester
 )
 
@@ -46,6 +48,7 @@ class VillagerAiSystem:
     def __init__(self, world):
         self.tasks = [
             Harvester,
+            Worker,
         ]
 
         self.entities = world.entities
@@ -84,10 +87,14 @@ class VillagerAiSystem:
         return random.choice(available_tasks)
 
     def target_for_task(self, task):
-        target_component = task.target_component()
         for entity in self.entities:
-            if target_component in entity.components.classes():
-                return getattr(entity, target_component.exposed_as).reveal()
+            target_components = task.target_components()
+            random.shuffle(target_components)
+
+            for target_component in target_components:
+                if target_component in entity.components.classes():
+                    proxy = getattr(entity, target_component.exposed_as)
+                    return proxy.reveal()
 
     def available_tasks_for(self, villager):
         tasks = []

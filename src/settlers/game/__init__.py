@@ -4,7 +4,7 @@ from settlers.entities.characters.components.villager_ai_system import (
 )
 from settlers.entities.characters.villager import Villager
 from settlers.engine.components.factory import (
-    Factory, Pipeline, PipelineInput, PipelineOutput
+    FactorySystem, Factory, Pipeline, PipelineInput, PipelineOutput
 )
 from settlers.engine.components.generative import (
     GenerativeSystem
@@ -21,6 +21,7 @@ from settlers.engine.entities.resources.resource_storage import ResourceStorage
 
 def setup(world):
     world.add_system(VillagerAiSystem(world))
+    world.add_system(FactorySystem())
     world.add_system(GenerativeSystem())
     world.add_system(HarvesterSystem())
     world.add_system(TravelSystem())
@@ -54,6 +55,6 @@ def build_sawmill(name):
         sawmill_storages
     )
 
-    sawmill.components.add((Factory, sawmill_pipelines))
+    sawmill.components.add((Factory, sawmill_pipelines, 1))
 
     return sawmill
