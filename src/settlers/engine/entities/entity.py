@@ -3,11 +3,10 @@ from .position import Position
 
 
 class Entity:
-    components = []
+    components = [(Position, -1, -1)]
 
     def __init__(self):
         self.components = Components(self)
-        self.position = Position(-1, -1)
 
     def initialize(self):
         self.components.initialize()

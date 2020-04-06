@@ -1,6 +1,6 @@
 from . import Resource
-from settlers.engine.entities.resources.components.generative import Generative
-from settlers.engine.entities.resources.components.harvestable import (
+from settlers.engine.components.generative import Generative
+from settlers.engine.components.harvesting import (
     Harvestable
 )
 

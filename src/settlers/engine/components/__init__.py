@@ -1,9 +1,10 @@
 class Components:
-    __slots__ = ['components', 'owner']
+    __slots__ = ['components', 'component_classes', 'owner']
 
     def __init__(self, owner):
         self.owner = owner
         self.components = []
+        self.component_classes = set([])
 
     def initialize(self):
         parents = [self.owner.__class__]
@@ -48,6 +49,7 @@ class Components:
 
             component_instance = component_class(self.owner, *arguments)
 
+        self.component_classes.add(component_instance.__class__)
         self.components.append(component_instance)
 
         if hasattr(component_instance, 'exposed_as'):
@@ -78,6 +80,7 @@ class Components:
 
     def remove(self, component):
         self.components.remove(component)
+        self.component_classes = set([c.__class__ for c in self.components])
 
         if hasattr(component, 'exposed_as'):
             exposed_as = component.exposed_as
@@ -91,17 +94,26 @@ class Components:
             else:
                 delattr(self.owner, exposed_as)
 
+    def classes(self):
+        return self.component_classes
+
     def __iter__(self):
         return iter(self.components)
 
 
 class ComponentProxy:
-    __slots__ = ['_alias', '_component', '_exposed_methods', '_owner']
+    __slots__ = [
+        '_alias', '_component', '_exposed_methods', '_owner',
+        '__weakref__'
+    ]
 
     def __init__(self, owner, component):
         self._component = component
         self._exposed_methods = component.exposed_methods
         self._owner = owner
+
+    def reveal(self):
+        return self._component
 
     def __getattr__(self, attr):
         if attr in self._exposed_methods:
@@ -121,8 +133,18 @@ class ComponentProxy:
             )
             raise AttributeError(message)
 
+    def __eq__(self, other):
+        return self._component == other._component
+
     def __hasattr__(self, attr):
         return attr in self._exposed_methods
+
+    def __repr__(self):
+        return "<{klass}<{proxied}> methods={methods}>".format(
+            proxied=self._component,
+            klass=self.__class__.__name__,
+            methods=self._exposed_methods,
+        )
 
 
 class Component:

@@ -1,9 +1,21 @@
-class Position:
+from ..components import Component
+
+
+class Position(Component):
     __slots__ = ['x', 'y']
 
-    def __init__(self, x, y):
+    exposed_as = 'position'
+    exposed_methods = ['update']
+
+    def __init__(self, owner, x, y):
+        super().__init__(owner)
+
         self.x = x
         self.y = y
+
+    def update(self, velocity):
+        self.x += velocity.x
+        self.y += velocity.y
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

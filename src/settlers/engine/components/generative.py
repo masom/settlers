@@ -1,4 +1,4 @@
-from ....components import Component
+from . import Component
 
 
 class Generative(Component):
