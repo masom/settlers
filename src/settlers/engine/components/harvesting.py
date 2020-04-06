@@ -5,6 +5,7 @@ from . import Component
 STATE_DELIVERING = 'delivering'
 STATE_HARVESTING = 'harvesting'
 STATE_IDLE = 'idle'
+STATE_FULL = 'full'
 
 
 class Harvester(Component):
@@ -139,6 +140,9 @@ class Harvester(Component):
     def stop(self):
         self.state_change(STATE_IDLE)
 
+        for callback in self.on_end_callbacks:
+            callback(self)
+
         if self.source:
             source = self.source()
             if source:
@@ -146,8 +150,8 @@ class Harvester(Component):
 
             self.source = None
 
-        for callback in self.on_end_callbacks:
-            callback(self)
+        if self.destination:
+            self.destination = None
 
         self.on_end_callbacks = []
 
@@ -165,12 +169,6 @@ class Harvester(Component):
             )
         )
         self.state = new_state
-
-        if new_state == STATE_DELIVERING:
-            if self.destination:
-                destination = self.destination()
-                if destination:
-                    self.owner.mouvement.travel_to(destination)
 
 
 class Harvestable(Component):
@@ -255,6 +253,9 @@ class HarvesterSystem:
                 self.handle_harvesting(worker)
                 continue
 
+            if worker.state == STATE_FULL:
+                self.handle_delivery(worker)
+
             if worker.state == STATE_DELIVERING:
                 self.handle_delivery(worker)
 
@@ -267,15 +268,14 @@ class HarvesterSystem:
             raise RuntimeError('destination dead')
 
         if destination.position == worker.position():
-            worker.deliver()
             return
 
-        if hasattr(worker.owner, 'movement'):
-            worker.owner.movement.travel_to(destination)
+        if hasattr(worker.owner, 'travel'):
+            worker.owner.travel.start(destination)
 
     def handle_harvesting(self, worker):
         if worker.storage.is_full():
-            worker.state_change(STATE_DELIVERING)
+            worker.state_change(STATE_FULL)
             return
 
         if not worker.source:
