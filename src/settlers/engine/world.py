@@ -39,6 +39,9 @@ class World:
                     if component.__class__ in wants
                 ]
 
-                components.extend(entity_components)
+                if len(entity_components) == 1:
+                    components.extend(entity_components)
+                else:
+                    components.append(entity_components)
 
         return components
