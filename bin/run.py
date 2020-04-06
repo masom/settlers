@@ -1,22 +1,31 @@
 import path_fix # noqa
 
 from settlers.engine.world import World
-from settlers.engine.entities.resources.components.generative import (
+from settlers.engine.components.generative import (
     GenerativeSystem
 )
-from settlers.engine.entities.resources.components.harvestable import (
-    HarvestableSystem
+
+from settlers.engine.components.harvesting import (
+    HarvesterSystem,
 )
+
 from settlers.entities.resources.tree import Tree
 from settlers.entities.characters.villager import Villager
+from settlers.entities.characters.components.villager_ai_system import (
+    VillagerAiSystem
+)
+
 
 world = World()
 
-# world.add_system(VillagerAiSystem)
+world.add_system(VillagerAiSystem(world))
 world.add_system(GenerativeSystem())
-world.add_system(HarvestableSystem())
+world.add_system(HarvesterSystem())
+
 world.add_entity(Tree(1, 10))
-world.add_entity(Villager())
+
+for _ in range(10):
+    world.add_entity(Villager())
 
 world.initialize()
 

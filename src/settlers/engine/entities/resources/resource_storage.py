@@ -13,6 +13,9 @@ class ResourceStorage:
             return True
         return False
 
+    def available(self):
+        return self.capacity - len(self._storage)
+
     def is_empty(self):
         return len(self._storage) == 0
 
