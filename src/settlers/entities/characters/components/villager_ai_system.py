@@ -40,6 +40,12 @@ class VillagerAi(Component):
 
         self.state = new_state
 
+    def __repr__(self):
+        return "<{self} {id}>".format(
+            self=self.__class__.__name__,
+            id=hex(id(self))
+        )
+
 
 class VillagerAiSystem:
 
@@ -55,7 +61,7 @@ class VillagerAiSystem:
 
     def process(self, villagers):
         for villager in villagers:
-            if not villager.state == STATE_IDLE:
+            if villager.state == STATE_BUSY:
                 continue
 
             task = self.select_task(villager)
@@ -70,13 +76,30 @@ class VillagerAiSystem:
 
             target = self.target_for_task(task)
             if not target:
-                return
+                print(
+                    "{owner}#{self} no target for task {task}".format(
+                        self=villager,
+                        owner=villager.owner,
+                        task=task,
+                    )
+                )
+                continue
 
             component = getattr(villager.owner, task.exposed_as)
             if component.start(target):
                 component.on_end(villager.on_task_ended)
                 villager.task = task
                 villager.state_change(STATE_BUSY)
+            else:
+                print(
+                    "{self}#{villager} could not start"
+                    " {task} at {target}".format(
+                        self=self,
+                        villager=villager,
+                        task=task,
+                        target=target,
+                    )
+                )
 
     def select_task(self, villager):
         available_tasks = self.available_tasks_for(villager)
@@ -87,13 +110,16 @@ class VillagerAiSystem:
         return random.choice(available_tasks)
 
     def target_for_task(self, task):
-        for entity in self.entities:
-            target_components = task.target_components()
-            random.shuffle(target_components)
+        target_components = set(task.target_components())
 
-            for target_component in target_components:
-                if target_component in entity.components.classes():
-                    proxy = getattr(entity, target_component.exposed_as)
+        for entity in self.entities:
+            intersection = list(target_components.intersection(
+                entity.components.classes()
+            ))
+            if intersection:
+                random.shuffle(intersection)
+                proxy = getattr(entity, intersection[0].exposed_as)
+                if proxy.can_add_worker():
                     return proxy.reveal()
 
     def available_tasks_for(self, villager):
@@ -102,3 +128,9 @@ class VillagerAiSystem:
             if component in villager.owner.components.classes():
                 tasks.append(component)
         return tasks
+
+    def __repr__(self):
+        return "<{self} {id}>".format(
+            self=self.__class__.__name__,
+            id=hex(id(self)),
+        )

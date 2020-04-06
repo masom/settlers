@@ -1,3 +1,5 @@
+import random
+
 from settlers.entities.buildings import Building
 from settlers.entities.characters.components.villager_ai_system import (
     VillagerAiSystem
@@ -20,6 +22,8 @@ from settlers.engine.entities.resources.resource_storage import ResourceStorage
 
 
 def setup(world):
+    random.seed(world.random_seed)
+
     world.add_system(VillagerAiSystem(world))
     world.add_system(FactorySystem())
     world.add_system(GenerativeSystem())
@@ -28,7 +32,7 @@ def setup(world):
 
     world.add_entity(Tree(1, 10))
 
-    for _ in range(10):
+    for _ in range(3):
         world.add_entity(Villager())
 
     world.add_entity(build_sawmill('Bob'))
@@ -40,6 +44,7 @@ def build_sawmill(name):
         Lumber: ResourceStorage(False, True, 50),
     }
 
+    sawmill_storages[Lumber].add(TreeLog())
     sawmill_pipelines = [
         Pipeline(
             [
