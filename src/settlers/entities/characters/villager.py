@@ -1,6 +1,9 @@
 import names
 
 from settlers.engine.entities.entity import Entity
+from settlers.engine.components.movement import (
+    Travel, Velocity
+)
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
 from settlers.entities.resources.tree import TreeLog
 from settlers.engine.components.harvesting import Harvester
@@ -14,6 +17,8 @@ class Villager(Entity):
 
     components = [
         VillagerAi,
+        Travel,
+        Velocity
     ]
 
     def __init__(self, name=None):

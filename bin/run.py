@@ -8,6 +8,7 @@ from settlers.engine.components.generative import (
 from settlers.engine.components.harvesting import (
     HarvesterSystem,
 )
+from settlers.engine.components.movement import TravelSystem
 
 from settlers.entities.resources.tree import Tree
 from settlers.entities.characters.villager import Villager
@@ -21,6 +22,7 @@ world = World()
 world.add_system(VillagerAiSystem(world))
 world.add_system(GenerativeSystem())
 world.add_system(HarvesterSystem())
+world.add_system(TravelSystem())
 
 world.add_entity(Tree(1, 10))
 

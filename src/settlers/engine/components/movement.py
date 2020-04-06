@@ -23,49 +23,65 @@ DIRECTION_RIGHT = 'right'
 
 
 class Travel(Component):
-    __slots__ = ['destination', 'state']
+    __slots__ = ['destination', 'on_end_callbacks', 'state']
 
     exposed_as = 'travel'
-    exposed_methods = ['travel_to']
+    exposed_methods = ['on_end', 'start', 'stop']
 
     def __init__(self, owner):
         super().__init__(owner)
 
         self.state = STATE_IDLE
         self.destination = None
+        self.on_end_callbacks = []
+
+    def on_end(self, callback):
+        self.on_end_callbacks.append(callback)
+
+    def start(self, destination):
+        if self.destination:
+            raise RuntimeError('already moving somewhere')
+
+        self.destination = weakref.ref(destination)
+        self.state_change(STATE_MOVING)
 
     def state_change(self, new_state):
+        if self.state == new_state:
+            return
+
+        destination = self.destination
+        if destination:
+            destination = destination()
+
         print(
             "{owner}#{component} state change: "
-            "{old_state} -> {new_state}".format(
+            "{old_state} -> {new_state}, destination={destination}".format(
                 owner=self.owner,
                 component=self.__class__.__name__,
                 old_state=self.state,
-                new_state=new_state
+                new_state=new_state,
+                destination=destination,
             )
         )
         self.state = new_state
 
-    def travel_to(self, destination):
-        print(
-            "{owner}#{component} at {owner_position} moving to "
-            " {destination} at {destination_position}".format(
-                owner=self.owner,
-                owner_position=self.owner.position,
-                component=self.__class__.__name__,
-                destination=destination,
-                destination_position=destination.position,
-            )
-        )
+    def stop(self):
+        self.state_change(STATE_IDLE)
 
-        self.destination = weakref.ref(destination)
+        if self.destination:
+            self.destination = None
+
+        for callback in self.on_end_callbacks:
+            callback(self)
+
+        self.on_end_callbacks = []
 
 
 class TravelSystem:
     component_types = set([Travel, Position, Velocity])
 
     def process(self, entities):
-        for entity, travel, position, velocity in entities:
+        for travel, position, velocity in entities:
             if not travel.destination:
                 travel.state_change(STATE_IDLE)
                 continue
