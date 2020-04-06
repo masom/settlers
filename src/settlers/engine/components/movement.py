@@ -68,11 +68,11 @@ class Travel(Component):
     def stop(self):
         self.state_change(STATE_IDLE)
 
-        if self.destination:
-            self.destination = None
-
         for callback in self.on_end_callbacks:
             callback(self)
+
+        if self.destination:
+            self.destination = None
 
         self.on_end_callbacks = []
 
@@ -91,11 +91,10 @@ class TravelSystem:
                 travel.destination = None
                 travel.state_change(STATE_IDLE)
 
-            if self.state == STATE_MOVING:
+            if travel.state == STATE_MOVING:
                 if destination.position == self.owner.position:
-                    self.destination = None
-                    self.state_change(STATE_IDLE)
-                    return
+                    travel.stop()
+                    continue
 
                 position.update(velocity)
 

@@ -8,14 +8,25 @@ class Components:
 
     def initialize(self):
         parents = [self.owner.__class__]
-        parents.extend(self.owner.__class__.__bases__)
+        parents.extend(self._find_parents(self.owner.__class__))
 
-        for parent_class in parents:
-            if not hasattr(parent_class, 'components'):
-                return
+        for klass in parents:
+            if 'components' not in klass.__dict__:
+                continue
 
-            for component_definition in parent_class.components:
+            for component_definition in klass.components:
                 self.add(component_definition)
+
+    def _find_parents(self, klass):
+        parents = []
+
+        for parent in klass.__bases__:
+            if parent == object:
+                break
+            parents.append(parent)
+            parents.extend(self._find_parents(parent))
+
+        return parents
 
     def add(self, component_definition):
         print(
