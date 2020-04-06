@@ -80,13 +80,69 @@ class Pipeline:
         return True
 
 
+class Worker(Component):
+    __slots__ = ['_on_end_callbacks', 'state', 'workplace']
+
+    exposed_as = 'work'
+    exposed_methods = ['on_end', 'start', 'stop']
+
+    def __init__(self, owner):
+        super().__init__(owner)
+
+        self.state = None
+        self.workplace = None
+        self._on_end_callbacks = []
+
+    def on_end(self, callback):
+        self._on_end_callbacks.append(callback)
+
+    def start(self, target):
+        if self.workplace:
+            raise RuntimeError('already working')
+
+        print("{owner}: Working at {target}".format(
+                owner=self.owner,
+                target=target
+            )
+        )
+
+        self.workplace = weakref.ref(target)
+        target.add_worker(self)
+
+    def state_change(self, new_state):
+        if self.state == new_state:
+            return
+
+        print(
+            "{owner}#{component} state change: "
+            "{old_state} -> {new_state}".format(
+                owner=self.owner,
+                component=self.__class__.__name__,
+                old_state=self.state,
+                new_state=new_state,
+            )
+        )
+        self.state = new_state
+
+    def stop(self):
+        self.state_change(STATE_IDLE)
+
+        for callback in self._on_end_callbacks:
+            callback(self)
+
+        self.workplace = None
+
+    @classmethod
+    def target_components(cls):
+        return [Factory]
+
+
 class WorkerProxy:
     __slots__ = [
         'pipeline', 'progress', 'factory', 'worker', '__weakref__'
     ]
 
     def __init__(self, factory, worker):
-        self.cycles = 0
         self.pipeline = None
         self.progress = 0
         self.factory = weakref.ref(factory)
@@ -102,7 +158,68 @@ class WorkerProxy:
         worker.notify_of_work_completed(resource, quantity)
 
 
+STATE_IDLE = 'idle'
+STATE_ACTIVE = 'active'
+
+
+class Factory(Component):
+    __slots__ = [
+        'active', 'cycles', 'max_workers', 'pipelines', 'ticks', 'workers'
+    ]
+
+    exposed_as = 'factory'
+    exposed_methods = ['add_worker', 'remote_worker', 'start', 'stop']
+
+    def __init__(self, owner, pipelines, max_workers):
+        super().__init__(owner)
+
+        self.active = False
+        self.max_workers = max_workers
+        self.pipelines = pipelines
+        self.workers = []
+
+    def add_worker(self, worker):
+        if len(self.workers) > self.max_workers:
+            return False
+
+        self.workers.append(WorkerProxy(self, worker))
+        return True
+
+    def position(self):
+        self.owner.position
+
+    def remove_worker(self, worker):
+        for proxy in self.workers:
+            if proxy.worker() == worker:
+                self.workers.remove(proxy)
+                return True
+        return False
+
+    def start(self):
+        self.active = True
+
+    def state_change(self, new_state):
+        if self.state == new_state:
+            return
+
+        print(
+            "{owner}#{component} state change: "
+            "{old_state} -> {new_state}".format(
+                owner=self.owner,
+                component=self.__class__.__name__,
+                old_state=self.state,
+                new_state=new_state,
+            )
+        )
+        self.state = new_state
+
+    def stop(self):
+        self.active = False
+
+
 class FactorySystem:
+    component_types = [Factory]
+
     def process(self, factories):
         for factory in factories:
             if not factory.active:
@@ -110,6 +227,9 @@ class FactorySystem:
 
             if not factory.workers:
                 continue
+
+            if factory.state == STATE_IDLE:
+                factory.state_change(STATE_ACTIVE)
 
             self.process_workers(factory)
 
@@ -176,36 +296,3 @@ class FactorySystem:
             if not pipeline.is_available():
                 continue
             return pipeline
-
-
-class Factory(Component):
-    __slots__ = ['active', 'cycles', 'pipelines', 'ticks', 'workers']
-
-    exposed_as = 'factory'
-    exposed_methods = ['add_worker', 'remote_worker', 'start', 'stop']
-
-    def __init__(self, owner, pipelines):
-        super().__init__(owner)
-
-        self.active = False
-        self.workers = []
-        self.pipelines = pipelines
-
-    def add_worker(self, worker):
-        self.workers.append(WorkerProxy(self, worker))
-
-    def position(self):
-        self.owner.position
-
-    def remove_worker(self, worker):
-        for proxy in self.workers:
-            if proxy.worker() == worker:
-                self.workers.remove(proxy)
-                return True
-        return False
-
-    def start(self):
-        self.active = True
-
-    def stop(self):
-        self.active = False

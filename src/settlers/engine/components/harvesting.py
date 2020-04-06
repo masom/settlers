@@ -36,8 +36,8 @@ class Harvester(Component):
         self.ticks = 0
 
     @classmethod
-    def target_component(cls):
-        return Harvestable
+    def target_components(cls):
+        return [Harvestable]
 
     def assign_destination(self, building):
         self.destination = weakref.ref(building)
