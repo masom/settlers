@@ -300,9 +300,13 @@ class HarvesterSystem:
 
         destination = worker.destination()
         if not destination:
-            raise RuntimeError('destination dead')
+            worker.destination = None
+            worker.state_change(STATE_IDLE)
+            return
 
         if destination.position == worker.position():
+            worker.deliver()
+            worker.state_change(STATE_IDLE)
             return
 
         if hasattr(worker.owner, 'travel'):
@@ -314,7 +318,6 @@ class HarvesterSystem:
             return
 
         if not worker.source:
-            worker.state_change(STATE_IDLE)
             worker.stop()
             return
 
@@ -326,7 +329,7 @@ class HarvesterSystem:
                 source=worker.source,
                 worker=worker,
             )
-
+            worker.source = None
             worker.state_change(STATE_IDLE)
             return
 
@@ -341,8 +344,8 @@ class HarvesterSystem:
                 worker=worker,
             )
 
-            worker.state_change(STATE_IDLE)
             worker.source = None
+            worker.state_change(STATE_IDLE)
             return
 
         if not worker.position() == source.position():

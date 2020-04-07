@@ -1,9 +1,13 @@
+import structlog
 import weakref
+
 from . import Component
 from ..entities.position import Position
 
 STATE_IDLE = 'idle'
 STATE_MOVING = 'moving'
+
+logger = structlog.get_logger('engine.movement')
 
 
 class Velocity(Component):
@@ -53,15 +57,13 @@ class Travel(Component):
         if destination:
             destination = destination()
 
-        print(
-            "{owner}#{component} state change: "
-            "{old_state} -> {new_state}, destination={destination}".format(
-                owner=self.owner,
-                component=self.__class__.__name__,
-                old_state=self.state,
-                new_state=new_state,
-                destination=destination,
-            )
+        logger.debug(
+            'state_change',
+            old_state=self.state,
+            new_state=new_state,
+            destination=destination,
+            owner=self.owner,
+            component=self.__class__.__name__,
         )
         self.state = new_state
 
@@ -71,9 +73,7 @@ class Travel(Component):
         for callback in self.on_end_callbacks:
             callback(self)
 
-        if self.destination:
-            self.destination = None
-
+        self.destination = None
         self.on_end_callbacks = []
 
 
@@ -88,8 +88,20 @@ class TravelSystem:
 
             destination = travel.destination()
             if not destination:
+                logger.debug(
+                    'process_destination_dead',
+                    destination=travel.destination,
+                    owner=travel.owner,
+                    system=self.__class__.__name__,
+                )
+
                 travel.destination = None
                 travel.state_change(STATE_IDLE)
+                continue
+
+            if travel.state == STATE_IDLE:
+                travel.state_change(STATE_MOVING)
+                continue
 
             if travel.state == STATE_MOVING:
                 if destination.position == self.owner.position:
@@ -97,14 +109,3 @@ class TravelSystem:
                     continue
 
                 position.update(velocity)
-
-
-class PhysicsSystem:
-    component_types = set([Position])
-
-    def __init__(self, world):
-        self.world = world
-
-    def process(self, entities):
-        for entity in entities:
-            pass

@@ -32,7 +32,7 @@ def setup(world):
 
     world.add_entity(Tree(1, 10))
 
-    for _ in range(3):
+    for _ in range(4):
         world.add_entity(Villager())
 
     world.add_entity(build_sawmill('Bob'))
