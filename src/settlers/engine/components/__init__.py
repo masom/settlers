@@ -142,6 +142,9 @@ class ComponentProxy:
             raise AttributeError(message)
 
     def __eq__(self, other):
+        if not other:
+            return False
+
         return self._component == other._component
 
     def __hasattr__(self, attr):

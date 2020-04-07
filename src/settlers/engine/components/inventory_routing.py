@@ -1,4 +1,8 @@
+import structlog
+
 from settlers.engine.components import Component
+
+logger = structlog.get_logger('engine.inventory_routing')
 
 
 class InventoryRouting(Component):
@@ -9,7 +13,9 @@ class InventoryRouting(Component):
     exposed_methods = [
         'available_for_transport',
         'can_receive_resources',
-        'remove_inventory'
+        'remove_inventory',
+        'storage_for',
+        'wants_resources'
     ]
 
     def __init__(self, owner, priority_list):
@@ -35,12 +41,11 @@ class InventoryRouting(Component):
             else:
                 available[resource] = False
 
-        print(
-            "{self}#{component} available: {available}".format(
-                self=self.owner,
-                component=self.__class__.__name__,
-                available=available
-            )
+        logger.debug(
+            'available_for_transport',
+            available=available,
+            owner=self.owner,
+            component=self.__class__.__name__,
         )
 
         for item in self.priority_list:
@@ -49,10 +54,10 @@ class InventoryRouting(Component):
                     return item
 
     def can_receive_resources(self):
-        if len(self.storages) == 0:
+        if len(self.owner.storages) == 0:
             return False
 
-        for storage in self.storages.values():
+        for storage in self.owner.storages.values():
             if storage.allows_incoming:
                 return True
 
@@ -70,7 +75,7 @@ class InventoryRouting(Component):
         return storage.add(resource)
 
     def storage_for(self, resource):
-        for stored_resource, storage in self.storages.items():
+        for stored_resource, storage in self.owner.storages.items():
             if stored_resource == resource.__class__:
                 return storage
 
@@ -83,3 +88,10 @@ class InventoryRouting(Component):
             return None
 
         return storage.pop()
+
+    def wants_resources(self):
+        return [
+            resource
+            for resource, storage in self.owner.storages.items()
+            if storage.allows_incoming and not storage.is_full()
+        ]

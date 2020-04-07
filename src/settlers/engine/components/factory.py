@@ -39,7 +39,8 @@ class PipelineOutput:
 class Pipeline:
     __slots__ = [
         'inputs', 'output',
-        'reserved', 'ticks_per_cycle'
+        'reserved', 'ticks_per_cycle',
+        '__weakref__'
     ]
 
     def __init__(self, inputs, output, ticks_per_cycle):
@@ -70,7 +71,7 @@ class Pipeline:
         return outputs
 
     def is_available(self):
-        if self._reserved:
+        if self.reserved:
             return False
 
         if self.output.storage.is_full():
@@ -84,7 +85,9 @@ class Pipeline:
 
 
 class Worker(Component):
-    __slots__ = ['_on_end_callbacks', 'state', 'workplace']
+    __slots__ = [
+        '_on_end_callbacks', 'pipeline', 'progress', 'state', 'workplace'
+    ]
 
     exposed_as = 'work'
     exposed_methods = ['on_end', 'start', 'stop']
@@ -93,8 +96,26 @@ class Worker(Component):
         super().__init__(owner)
 
         self.state = STATE_IDLE
+        self.pipeline = None
+        self.progress = 0
         self.workplace = None
         self._on_end_callbacks = []
+
+    def can_work(self):
+        if not self.workplace:
+            return False
+
+        workplace = self.workplace()
+        if not workplace:
+            return False
+
+        return workplace.position() == self.owner.position
+
+    def is_active(self):
+        if not self.can_work():
+            return False
+
+        return self.state == STATE_ACTIVE
 
     def on_end(self, callback):
         self._on_end_callbacks.append(callback)
@@ -105,7 +126,7 @@ class Worker(Component):
 
         if not target.can_add_worker():
             logger.debug(
-                'start cannot be added',
+                'start_target_rejected',
                 target=target,
                 owner=self.owner,
                 component=self.__class__.__name__,
@@ -113,7 +134,7 @@ class Worker(Component):
             return False
 
         logger.debug(
-            'start requested',
+            'start_requested',
             target=target,
             owner=self.owner,
             component=self.__class__.__name__,
@@ -169,34 +190,14 @@ class Worker(Component):
         return [Factory]
 
 
-class WorkerProxy:
-    __slots__ = [
-        'pipeline', 'progress', 'factory', 'worker', '__weakref__'
-    ]
-
-    def __init__(self, factory, worker):
-        self.pipeline = None
-        self.progress = 0
-        self.factory = weakref.ref(factory)
-        self.worker = weakref.ref(worker)
-
-    def is_active(self):
-        factory = self.factory()
-        worker = self.worker()
-        return factory.position() == worker.position()
-
-    def work_completed(self, resource, quantity):
-        worker = self.worker()
-        worker.notify_of_work_completed(resource, quantity)
-
-
 STATE_IDLE = 'idle'
 STATE_ACTIVE = 'active'
 
 
 class Factory(Component):
     __slots__ = [
-        'active', 'cycles', 'max_workers', 'pipelines', 'ticks', 'workers'
+        'active', 'cycles', 'max_workers', 'pipelines', 'state', 'ticks',
+        'workers'
     ]
 
     exposed_as = 'factory'
@@ -210,6 +211,7 @@ class Factory(Component):
         self.active = False
         self.max_workers = max_workers
         self.pipelines = pipelines
+        self.state = STATE_IDLE
         self.workers = []
 
     def add_worker(self, worker):
@@ -223,25 +225,34 @@ class Factory(Component):
             worker=worker,
         )
 
-        self.workers.append(WorkerProxy(self, worker))
+        self.workers.append(weakref.ref(worker))
+
+        if not self.active:
+            self.active = True
+
         return True
 
     def can_add_worker(self):
         return len(self.workers) < self.max_workers
 
     def position(self):
-        self.owner.position
+        return self.owner.position
 
     def remove_worker(self, worker):
-        for proxy in self.workers:
-            if proxy.worker() == worker:
+        for reference in self.workers:
+            resolved_reference = reference()
+            if not resolved_reference:
+                self.workers.remove(reference)
+                continue
+
+            if resolved_reference == worker:
                 logger.debug(
                     'remove_worker',
                     component=self.__class__.__name__,
-                    worker=proxy,
+                    worker=worker,
                 )
 
-                self.workers.remove(proxy)
+                self.workers.remove(reference)
                 return True
         return False
 
@@ -293,11 +304,17 @@ class FactorySystem:
                 continue
 
     def process_workers(self, factory):
-        for worker in factory.workers:
+        for worker_reference in factory.workers:
+            worker = worker_reference()
+
+            if not worker:
+                self.workers.remove(worker_reference)
+                continue
+
             # each worker should be on a different pipeline
             if not worker.can_work():
                 logger.debug(
-                    'process_workers cannot work',
+                    'process_worker_cannot_work',
                     worker=worker,
                     factory=factory,
                     system=self.__class__.__name__,
@@ -314,31 +331,33 @@ class FactorySystem:
                 self.activate_pipeline_on_worker(factory, worker)
                 if not worker.pipeline:
                     logger.debug(
-                        'process_workers no pipeline',
+                        'process_workers_no_available_pipeline',
                         worker=worker,
                         factory=factory,
                         system=self.__class__.__name__
                     )
                     continue
 
-            if worker.progress >= worker.pipeline.ticks_per_cycle:
-                pipeline = worker.pipeline
+            pipeline = worker.pipeline()
+            if worker.progress >= pipeline.ticks_per_cycle:
 
                 outputs = pipeline.build_outputs()
-                worker.work_completed(pipeline.output.resource, len(outputs))
 
                 logger.debug(
-                    'process_workers completed',
+                    'process_workers_work_completed',
                     output=pipeline.output.resource,
-                    owner=self.owner,
                     quantity=len(outputs),
-                    component=self.__class__.__name__,
                     worker=worker,
+                    component=factory,
+                    owner=factory.owner,
+                    system=self.__class__.__name__,
                 )
 
                 worker.pipeline = None
                 worker.progress = 0
                 pipeline.reserved = False
+
+                worker.state_change(STATE_IDLE)
             else:
                 worker.progress += 1
 
@@ -348,17 +367,19 @@ class FactorySystem:
         if not pipeline:
             return False
 
+        pipeline.reserved = True
+        pipeline.consume_input()
+
+        worker.pipeline = weakref.ref(pipeline)
+        worker.state_change(STATE_ACTIVE)
+
         logger.info(
-            'activate_pipeline_on_worker pipeline activated',
+            'activate_pipeline_on_worker_pipeline_activated',
             factory=factory,
             worker=worker,
             pipeline=pipeline,
             system=self.__class__.__name__,
         )
-
-        pipeline.reserved = True
-        pipeline.consume_input()
-        worker.pipeline = pipeline
 
         return True
 
