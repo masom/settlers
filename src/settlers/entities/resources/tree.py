@@ -32,7 +32,7 @@ class Tree(Resource):
         super().initialize()
 
     def __repr__(self):
-        return "<{self} {id}>".format(
-            self=self.__class__,
+        return "<resources.{self} {id}>".format(
+            self=self.__class__.__name__,
             id=hex(id(self)),
         )

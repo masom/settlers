@@ -38,10 +38,6 @@ class Harvester(Component):
         self.source = None
         self.ticks = 0
 
-    @classmethod
-    def target_components(cls):
-        return [Harvestable]
-
     def assign_destination(self, building):
         self.destination = weakref.ref(building)
 
@@ -52,32 +48,6 @@ class Harvester(Component):
         if self.storage.is_full():
             return False
         return True
-
-    def inventory_available_for(self, resource):
-        return self.storage.available()
-
-    def start(self, source):
-        if self.source:
-            raise RuntimeError('already assigned')
-
-        if not source.can_add_worker():
-            logger.debug(
-                'cannot add worker',
-                component=self.__class__.__name__,
-                owner=self.owner,
-                source=source,
-            )
-            return False
-
-        logger.debug(
-            'start requested',
-            owner=self.owner,
-            component=self.__class__.__name__,
-            target=source
-        )
-
-        self.source = weakref.ref(source)
-        return source.add_worker(self)
 
     def deliver(self):
         self.state_change(STATE_IDLE)
@@ -114,6 +84,9 @@ class Harvester(Component):
             kept=kept
         )
 
+    def inventory_available_for(self, resource):
+        return self.storage.available()
+
     def on_end(self, callback):
         self.on_end_callbacks.append(callback)
 
@@ -130,13 +103,57 @@ class Harvester(Component):
                 raise RuntimeError('full...')
 
         logger.info(
-            'harvest',
-            owner=self.owner,
-            component=self.__class__.__name__,
+            'receive_harvest',
             collected=collected,
             total=len(harvest),
             harvest=harvest,
+            component=self.__class__.__name__,
+            owner=self.owner,
         )
+
+    def __repr__(self):
+        return "<{owner}#{component} {id}>".format(
+            component=self.__class__.__name__,
+            owner=self.owner,
+            id=hex(id(self)),
+        )
+
+    def start(self, source):
+        if self.source:
+            raise RuntimeError('already assigned')
+
+        if not source.can_add_worker():
+            logger.debug(
+                'start_source_rejected',
+                source=source,
+                component=self.__class__.__name__,
+                owner=self.owner,
+            )
+            return False
+
+        logger.debug(
+            'start_requested',
+            source=source,
+            owner=self.owner,
+            component=self.__class__.__name__,
+        )
+
+        self.source = weakref.ref(source)
+        return source.add_worker(self)
+
+    def state_change(self, new_state):
+        if self.state == new_state:
+            return
+
+        logger.debug(
+            'state_change',
+            old_state=self.state,
+            new_state=new_state,
+            owner=self.owner,
+            component=self.__class__.__name__,
+        )
+
+        self.state = new_state
 
     def stop(self):
         self.state_change(STATE_IDLE)
@@ -162,19 +179,9 @@ class Harvester(Component):
 
         self.on_end_callbacks = []
 
-    def state_change(self, new_state):
-        if self.state == new_state:
-            return
-
-        logger.info(
-            'state change',
-            owner=self.owner,
-            component=self.__class__.__name__,
-            old_state=self.state,
-            new_state=new_state
-        )
-
-        self.state = new_state
+    @classmethod
+    def target_components(cls):
+        return [Harvestable]
 
 
 class Harvestable(Component):
@@ -248,6 +255,8 @@ class Harvestable(Component):
                 logger.debug(
                     'remove_worker',
                     worker=entity,
+                    owner=self.owner,
+                    component=self.__class__.__name__,
                 )
                 self.workers.remove(worker)
                 return
@@ -257,8 +266,8 @@ class Harvestable(Component):
 
     def __repr__(self):
         return "<{owner}#{component} {id}>".format(
-            component=self.__class__.__name__,
             owner=self.owner,
+            component=self.__class__.__name__,
             id=hex(id(self))
         )
 
@@ -270,17 +279,8 @@ class HarvesterSystem:
         for worker in workers:
             if worker.state == STATE_IDLE:
                 if not worker.source:
-                    return
-
-                logger.debug(
-                    'process to harvesting',
-                    system=self.__class__.__name__,
-                    worker=worker,
-                    worker_state=worker.state,
-                    worker_source=worker.source,
-                )
-
-                self.handle_harvesting(worker)
+                    continue
+                worker.state_change(STATE_HARVESTING)
                 continue
 
             if worker.state == STATE_HARVESTING:
@@ -289,6 +289,7 @@ class HarvesterSystem:
 
             if worker.state == STATE_FULL:
                 self.handle_delivery(worker)
+                continue
 
             if worker.state == STATE_DELIVERING:
                 self.handle_delivery(worker)
@@ -333,7 +334,7 @@ class HarvesterSystem:
 
         if not worker.can_harvest(resource):
             logger.debug(
-                'handle_harvesting cannot harvest',
+                'handle_harvesting_cannot_harvest',
                 system=self.__class__.__name__,
                 resource=resource,
                 source=source,
@@ -346,7 +347,7 @@ class HarvesterSystem:
 
         if not worker.position() == source.position():
             logger.debug(
-                'handle_harvesting position difference',
+                'handle_harvesting_location_difference',
                 system=self.__class__.__name__,
                 source=source,
                 worker=worker,
@@ -379,7 +380,7 @@ class HarvesterSystem:
         source.harvested_quantity(harvested_quantity)
 
         logger.info(
-            'handle_harvest completed',
+            'handle_harvest_completed',
             harvestable=source,
             harvested_quantity=harvested_quantity,
             resource=resource,

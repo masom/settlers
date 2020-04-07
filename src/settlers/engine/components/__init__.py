@@ -1,3 +1,8 @@
+import structlog
+
+logger = structlog.get_logger('components')
+
+
 class Components:
     __slots__ = ['components', 'component_classes', 'owner']
 
@@ -29,11 +34,10 @@ class Components:
         return parents
 
     def add(self, component_definition):
-        print(
-            "{owner} registering {component}".format(
-                owner=self.owner,
-                component=component_definition,
-            )
+        logger.debug(
+            "add",
+            owner=self.owner,
+            component=component_definition,
         )
 
         component_instance = None
