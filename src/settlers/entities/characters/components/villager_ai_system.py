@@ -6,8 +6,9 @@ from settlers.engine.components.factory import (
     Worker
 )
 from settlers.engine.components.harvesting import (
-    Harvester
+    Harvester, STATE_FULL as HARVESTER_STATE_FULL
 )
+from settlers.entities.buildings import Building
 
 STATE_IDLE = 'idle'
 STATE_BUSY = 'busy'
@@ -61,9 +62,41 @@ class VillagerAiSystem:
 
         self.entities = world.entities
 
+    def handle_busy_villager(self, villager):
+        if villager.task == Harvester:
+            proxy = getattr(villager.owner, Harvester.exposed_as)
+
+            harvester = proxy.reveal()
+
+            if harvester.state == HARVESTER_STATE_FULL:
+                if harvester.destination:
+                    return
+
+                logger.debug(
+                    'handle_busy_villager_harvester_destination_selection',
+                    owner=villager.owner,
+                    system=self.__class__.__name__,
+                )
+
+                for entity in self.entities:
+                    if not isinstance(entity, Building):
+                        continue
+
+                    wants = entity.wants_resources()
+                    common = harvester.resources.intersection(wants)
+                    if not common:
+                        continue
+
+                    harvester.assign_destination(entity)
+
+                    return True
+
+        return False
+
     def process(self, villagers):
         for villager in villagers:
             if villager.state == STATE_BUSY:
+                self.handle_busy_villager(villager)
                 continue
 
             task = self.select_task(villager)

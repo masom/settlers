@@ -296,6 +296,12 @@ class HarvesterSystem:
 
     def handle_delivery(self, worker):
         if not worker.destination:
+            logger.debug(
+                'handle_delivery_no_destination',
+                system=self.__class__.__name__,
+                source=worker.source,
+                worker=worker,
+            )
             return
 
         destination = worker.destination()
