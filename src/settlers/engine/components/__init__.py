@@ -84,14 +84,7 @@ class Components:
                 )
 
             component_proxy = ComponentProxy(self.owner, component_instance)
-
-            if multiple:
-                if exposed_as_defined:
-                    getattr(self.owner, exposed_as).append(component_proxy)
-                else:
-                    setattr(self.owner, exposed_as, [component_proxy])
-            else:
-                setattr(self.owner, exposed_as, component_proxy)
+            setattr(self.owner, exposed_as, component_proxy)
 
     def remove(self, component):
         self.components.remove(component)

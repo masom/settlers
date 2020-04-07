@@ -1,4 +1,5 @@
 colorama
 flake8
 names
+pysdl2
 structlog

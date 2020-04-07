@@ -18,10 +18,15 @@ structlog.configure(
     cache_logger_on_first_use=False
 )
 
+logger = structlog.get_logger('run')
+
 world = World()
 setup(world)
 
 world.initialize()
 
-for _ in range(10):
+for _ in range(40):
+    logger.debug(
+        'tick'
+    )
     world.process()
