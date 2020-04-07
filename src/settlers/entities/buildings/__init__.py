@@ -10,6 +10,13 @@ class Building(Entity):
         self.name = name
         self.storages = storages
 
+    def wants_resources(self):
+        return [
+            resource
+            for resource, storage in self.storages.items()
+            if storage.allows_incoming and not storage.is_full()
+        ]
+
     def __repr__(self):
         return "<{klass} {name} {id}>".format(
             id=hex(id(self)),
