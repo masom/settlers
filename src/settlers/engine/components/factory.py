@@ -1,6 +1,9 @@
+import structlog
 import weakref
 
 from settlers.engine.components import Component
+
+logger = structlog.get_logger('engine.factory')
 
 
 class PipelineInput:
@@ -89,7 +92,7 @@ class Worker(Component):
     def __init__(self, owner):
         super().__init__(owner)
 
-        self.state = None
+        self.state = STATE_IDLE
         self.workplace = None
         self._on_end_callbacks = []
 
@@ -101,12 +104,19 @@ class Worker(Component):
             raise RuntimeError('already working')
 
         if not target.can_add_worker():
+            logger.debug(
+                'start cannot be added',
+                target=target,
+                owner=self.owner,
+                component=self.__class__.__name__,
+            )
             return False
 
-        print("{owner}: Working at {target}".format(
-                owner=self.owner,
-                target=target
-            )
+        logger.debug(
+            'start requested',
+            target=target,
+            owner=self.owner,
+            component=self.__class__.__name__,
         )
 
         self.workplace = weakref.ref(target)
@@ -116,15 +126,14 @@ class Worker(Component):
         if self.state == new_state:
             return
 
-        print(
-            "{owner}#{component} state change: "
-            "{old_state} -> {new_state}".format(
-                owner=self.owner,
-                component=self.__class__.__name__,
-                old_state=self.state,
-                new_state=new_state,
-            )
+        logger.debug(
+            'state_change',
+            old_state=self.state,
+            new_state=new_state,
+            owner=self.owner,
+            component=self.__class__.__name__,
         )
+
         self.state = new_state
 
     def stop(self):
@@ -133,7 +142,27 @@ class Worker(Component):
         for callback in self._on_end_callbacks:
             callback(self)
 
-        self.workplace = None
+        if self.workplace:
+            workplace = self.workplace()
+            if workplace:
+                workplace.remove_worker(self)
+
+            self.workplace = None
+
+        logger.info(
+            'stop',
+            owner=self.owner,
+            component=self.__class__.__name__,
+        )
+
+        self._on_end_callbacks = []
+
+    def __repr__(self):
+        return "<{owner}#{component} {id}".format(
+            owner=self.owner,
+            component=self.__class__.__name__,
+            id=hex(id(self)),
+        )
 
     @classmethod
     def target_components(cls):
@@ -187,6 +216,13 @@ class Factory(Component):
         if not self.can_add_worker():
             return False
 
+        logger.debug(
+            'add_worker',
+            owner=self.owner,
+            component=self.__class__.__name__,
+            worker=worker,
+        )
+
         self.workers.append(WorkerProxy(self, worker))
         return True
 
@@ -199,6 +235,12 @@ class Factory(Component):
     def remove_worker(self, worker):
         for proxy in self.workers:
             if proxy.worker() == worker:
+                logger.debug(
+                    'remove_worker',
+                    component=self.__class__.__name__,
+                    worker=proxy,
+                )
+
                 self.workers.remove(proxy)
                 return True
         return False
@@ -210,19 +252,25 @@ class Factory(Component):
         if self.state == new_state:
             return
 
-        print(
-            "{owner}#{component} state change: "
-            "{old_state} -> {new_state}".format(
-                owner=self.owner,
-                component=self.__class__.__name__,
-                old_state=self.state,
-                new_state=new_state,
-            )
+        logger.debug(
+            'state_change',
+            owner=self.owner,
+            component=self.__class__.__name__,
+            old_state=self.state,
+            new_state=new_state
         )
+
         self.state = new_state
 
     def stop(self):
         self.active = False
+
+    def __repr__(self):
+        return "<{owner}#{component} {id}>".format(
+            owner=self.owner,
+            component=self.__class__.__name__,
+            id=hex(id(self)),
+        )
 
 
 class FactorySystem:
@@ -238,13 +286,23 @@ class FactorySystem:
 
             if factory.state == STATE_IDLE:
                 factory.state_change(STATE_ACTIVE)
+                continue
 
-            self.process_workers(factory)
+            if factory.state == STATE_ACTIVE:
+                self.process_workers(factory)
+                continue
 
     def process_workers(self, factory):
         for worker in factory.workers:
             # each worker should be on a different pipeline
             if not worker.can_work():
+                logger.debug(
+                    'process_workers cannot work',
+                    worker=worker,
+                    factory=factory,
+                    system=self.__class__.__name__,
+                )
+
                 if worker.pipeline:
                     worker.pipeline.reserved = False
                     worker.pipeline = None
@@ -255,6 +313,12 @@ class FactorySystem:
             if not worker.is_active():
                 self.activate_pipeline_on_worker(factory, worker)
                 if not worker.pipeline:
+                    logger.debug(
+                        'process_workers no pipeline',
+                        worker=worker,
+                        factory=factory,
+                        system=self.__class__.__name__
+                    )
                     continue
 
             if worker.progress >= worker.pipeline.ticks_per_cycle:
@@ -263,15 +327,13 @@ class FactorySystem:
                 outputs = pipeline.build_outputs()
                 worker.work_completed(pipeline.output.resource, len(outputs))
 
-                print(
-                    "{owner}#{component} worker {worker} has completed"
-                    " {quantity} {output}".format(
-                        output=pipeline.output.resource,
-                        owner=self.owner,
-                        quantity=len(outputs),
-                        component=self.__class__.__name__,
-                        worker=worker,
-                    )
+                logger.debug(
+                    'process_workers completed',
+                    output=pipeline.output.resource,
+                    owner=self.owner,
+                    quantity=len(outputs),
+                    component=self.__class__.__name__,
+                    worker=worker,
                 )
 
                 worker.pipeline = None
@@ -286,11 +348,12 @@ class FactorySystem:
         if not pipeline:
             return False
 
-        print("{factory}: {worker} starting to work on {pipeline}".format(
-                factory=factory,
-                worker=worker,
-                pipeline=pipeline
-            )
+        logger.info(
+            'activate_pipeline_on_worker pipeline activated',
+            factory=factory,
+            worker=worker,
+            pipeline=pipeline,
+            system=self.__class__.__name__,
         )
 
         pipeline.reserved = True

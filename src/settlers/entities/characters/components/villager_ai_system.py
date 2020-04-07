@@ -1,4 +1,6 @@
 import random
+import structlog
+
 from settlers.engine.components import Component
 from settlers.engine.components.factory import (
     Worker
@@ -9,6 +11,8 @@ from settlers.engine.components.harvesting import (
 
 STATE_IDLE = 'idle'
 STATE_BUSY = 'busy'
+
+logger = structlog.get_logger('game.villager_ai')
 
 
 class VillagerAi(Component):
@@ -27,15 +31,13 @@ class VillagerAi(Component):
         if self.state == new_state:
             return
 
-        print(
-            "{owner}#{component} state change:"
-            " {old_state} -> {new_state}, task: {task}".format(
-                owner=self.owner,
-                component=self,
-                old_state=self.state,
-                new_state=new_state,
-                task=self.task,
-            )
+        logger.debug(
+            'state_change',
+            owner=self.owner,
+            component=self,
+            old_state=self.state,
+            new_state=new_state,
+            task=self.task,
         )
 
         self.state = new_state
@@ -66,39 +68,32 @@ class VillagerAiSystem:
 
             task = self.select_task(villager)
             if not task:
-                print(
-                    "{self} No tasks for {villager}".format(
-                        self=self,
-                        villager=villager
-                    )
-                )
                 continue
 
             target = self.target_for_task(task)
             if not target:
-                print(
-                    "{owner}#{self} no target for task {task}".format(
-                        self=villager,
-                        owner=villager.owner,
-                        task=task,
-                    )
-                )
                 continue
 
             component = getattr(villager.owner, task.exposed_as)
             if component.start(target):
+                logger.debug(
+                    'process_component_accepted',
+                    system=self.__class__.__name__,
+                    task=task,
+                    target=target,
+                    villager=villager.owner,
+                )
+
                 component.on_end(villager.on_task_ended)
                 villager.task = task
                 villager.state_change(STATE_BUSY)
             else:
-                print(
-                    "{self}#{villager} could not start"
-                    " {task} at {target}".format(
-                        self=self,
-                        villager=villager,
-                        task=task,
-                        target=target,
-                    )
+                logger.info(
+                    'process_component_rejected',
+                    system=self.__class__.__name__,
+                    task=task,
+                    target=target,
+                    villager=villager.owner,
                 )
 
     def select_task(self, villager):

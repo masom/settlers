@@ -1,4 +1,8 @@
+import structlog
+
 from . import Component
+
+logger = structlog.get_logger('factory')
 
 
 class Generative(Component):
@@ -40,27 +44,23 @@ class GenerativeSystem:
 
             if not generator.unlimited:
                 if generator.cycles > generator.max_cycles:
-                    # TODO remove the generator from that entity
+                    logger.debug(
+                        'process_generator_max_reached',
+                        cycles=generator.cycles,
+                        max_cycles=generator.max_cycles,
+                        generator=generator,
+                        system=self.__class__.__name__,
+                    )
+                    generator.owner.components.remove(generator)
                     continue
 
-                if generator.ticks < generator.ticks_per_cycle:
-                    generator.ticks += 1
-                    continue
+            if generator.ticks < generator.ticks_per_cycle:
+                generator.ticks += 1
+                continue
 
-                generator.cycles += 1
-                generator.ticks = 0
+            generator.cycles += 1
+            generator.ticks = 0
 
             value += generator.increase_per_cycle
-
-            print(
-                "{owner}#{self} increasing {attr}"
-                " by {increase} to {value}".format(
-                    attr=generator.target_attr,
-                    increase=generator.increase_per_cycle,
-                    owner=generator.owner,
-                    self=self.__class__.__name__,
-                    value=value,
-                )
-            )
 
             setattr(generator.owner, generator.target_attr, value)
