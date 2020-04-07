@@ -60,7 +60,7 @@ class Harvester(Component):
         delivered = []
         kept = []
         for resource in self.storage:
-            input_storage = destination.storage_for(resource)
+            input_storage = destination.inventory.storage_for(resource)
             if not input_storage:
                 continue
 

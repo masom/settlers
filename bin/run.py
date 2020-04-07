@@ -25,7 +25,7 @@ setup(world)
 
 world.initialize()
 
-for _ in range(40):
+for _ in range(50):
     logger.debug(
         'tick'
     )

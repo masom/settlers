@@ -82,7 +82,7 @@ class VillagerAiSystem:
                     if not isinstance(entity, Building):
                         continue
 
-                    wants = entity.wants_resources()
+                    wants = entity.inventory.wants_resources()
                     common = harvester.resources.intersection(wants)
                     if not common:
                         continue
