@@ -158,8 +158,38 @@ class ComponentProxy:
         )
 
 
+STATE_IDLE = 'idle'
+
+
 class Component:
-    __slots__ = ['owner', '__weakref__']
+    __slots__ = ['_on_end_callbacks', 'owner', 'state', '__weakref__']
 
     def __init__(self, owner):
+        self._on_end_callbacks = []
         self.owner = owner
+        self.state = STATE_IDLE
+
+    def on_end(self, callback):
+        self._on_end_callbacks.append(callback)
+
+    def state_change(self, new_state):
+        if self.state == new_state:
+            return
+
+        logger.debug(
+            'state_change',
+            old_state=self.state,
+            new_state=new_state,
+            owner=self.owner,
+            component=self.__class__.__name__,
+        )
+
+        self.state = new_state
+
+    def stop(self):
+        self.state_change(STATE_IDLE)
+
+        for callback in self._on_end_callbacks:
+            callback(self)
+
+        self._on_end_callbacks = []
