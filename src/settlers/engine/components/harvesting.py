@@ -27,6 +27,8 @@ class Harvester(Component):
         'assign_destination', 'can_harvest', 'on_end', 'start', 'stop'
     ]
 
+    _target_components = []
+
     def __init__(self, owner, resources, storage):
         super().__init__(owner)
 
@@ -181,7 +183,9 @@ class Harvester(Component):
 
     @classmethod
     def target_components(cls):
-        return [Harvestable]
+        if not cls._target_components:
+            cls._target_components.append(Harvestable)
+        return cls._target_components
 
 
 class Harvestable(Component):

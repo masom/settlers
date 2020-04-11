@@ -2,7 +2,7 @@ import names
 
 from settlers.engine.entities.entity import Entity
 from settlers.engine.components.factory import (
-    Worker
+    FactoryWorker
 )
 from settlers.engine.components.movement import (
     Travel, Velocity
@@ -22,7 +22,7 @@ class Villager(Entity):
         VillagerAi,
         Travel,
         Velocity,
-        Worker,
+        FactoryWorker,
     ]
 
     def __init__(self, name=None):
