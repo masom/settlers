@@ -3,7 +3,7 @@ import structlog
 
 from settlers.engine.components import Component
 from settlers.engine.components.factory import (
-    Worker
+    FactoryWorker
 )
 from settlers.engine.components.harvesting import (
     Harvester, STATE_FULL as HARVESTER_STATE_FULL
@@ -57,7 +57,7 @@ class VillagerAiSystem:
     def __init__(self, world):
         self.tasks = [
             Harvester,
-            Worker,
+            FactoryWorker,
         ]
 
         self.entities = world.entities
