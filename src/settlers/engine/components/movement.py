@@ -161,6 +161,10 @@ class ResourceTransport(Component):
         self.source = None
         self._common_route_resources = None
 
+    @classmethod
+    def target_components(self):
+        return None
+
 
 class ResourceTransportSystem:
     component_types = set([ResourceTransport, Travel])
