@@ -11,7 +11,9 @@ from settlers.engine.components.movement import (
     ResourceTransport, Travel, Velocity
 )
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
-from settlers.entities.resources.tree import TreeLog
+from settlers.entities.resources.tree import (
+    Lumber, TreeLog
+)
 from settlers.engine.components.harvesting import Harvester
 from settlers.entities.characters.components.villager_ai_system import (
     VillagerAi
@@ -19,7 +21,7 @@ from settlers.entities.characters.components.villager_ai_system import (
 
 
 class Villager(Entity):
-    __slots__ = ['name']
+    __slots__ = ['name', 'storage']
 
     components = [
         VillagerAi,
@@ -35,11 +37,16 @@ class Villager(Entity):
         if not name:
             name = names.get_full_name()
 
+        self.storages = {
+            TreeLog: ResourceStorage(True, True, 1),
+            Lumber: ResourceStorage(True, True, 5),
+        }
+
         self.name = name
 
     def initialize(self):
         self.components.add(
-            (Harvester, [TreeLog], ResourceStorage(True, True, 5)),
+            (Harvester, [TreeLog], self.storages[TreeLog]),
         )
         self.components.add(
             (ConstructionWorker, [])

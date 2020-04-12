@@ -3,18 +3,17 @@ import structlog
 
 from settlers.engine.components import Component
 from settlers.engine.components.construction import (
-    ConstructionWorker
+    Construction, ConstructionWorker
 )
 from settlers.engine.components.factory import (
-    FactoryWorker
+    Factory, FactoryWorker
 )
 from settlers.engine.components.harvesting import (
     Harvester, STATE_FULL as HARVESTER_STATE_FULL
 )
 from settlers.engine.components.movement import (
-    ResourceTransport
+    ResourceTransport, Travel
 )
-from settlers.engine.components.worker import Worker as _Worker
 
 from settlers.entities.buildings import Building
 
@@ -82,36 +81,125 @@ class VillagerAiSystem:
 
         self.entities = world.entities
 
+    def handle_busy_harvester(self, villager):
+        proxy = getattr(villager.owner, Harvester.exposed_as)
+        harvester = proxy.reveal()
+
+        if not harvester.state == HARVESTER_STATE_FULL:
+            return
+
+        if harvester.destination:
+            return
+
+        logger.debug(
+            'handle_busy_villager_harvester_destination_selection',
+            owner=villager.owner,
+            system=self.__class__.__name__,
+        )
+
+        for entity in self.entities:
+            if not isinstance(entity, Building):
+                continue
+
+            wants = entity.inventory.wants_resources()
+            common = harvester.resources.intersection(wants)
+            if not common:
+                continue
+
+            harvester.assign_destination(entity)
+            return
+
     def handle_busy_villager(self, villager):
         if villager.task == Harvester:
-            proxy = getattr(villager.owner, Harvester.exposed_as)
+            return self.handle_busy_harvester(villager)
 
-            harvester = proxy.reveal()
+    def handle_idle_villager(self, villager):
+        if not hasattr(villager.owner, 'resource_transport'):
+            raise
+            return
 
-            if harvester.state == HARVESTER_STATE_FULL:
-                if harvester.destination:
-                    return
+        logger.debug(
+            'handle_idle_villager',
+            owner=villager.owner,
+            system=self.__class__.__name__,
+        )
 
-                logger.debug(
-                    'handle_busy_villager_harvester_destination_selection',
-                    owner=villager.owner,
-                    system=self.__class__.__name__,
+        for source in self.entities:
+            if not isinstance(source, Building):
+                continue
+
+            if not hasattr(source, 'factory'):
+                continue
+
+            available_for_transport = (
+                source
+                .inventory
+                .available_for_transport()
+            )
+
+            if not available_for_transport:
+                continue
+
+            destination = self._find_destination_for_transport(
+                available_for_transport
+            )
+
+            if not destination:
+                continue
+
+            logger.debug(
+                'process_component_accepted',
+                system=self.__class__.__name__,
+                task=ResourceTransport,
+                target=destination,
+                villager=villager.owner,
+                valid_route=villager.owner.resource_transport.is_valid_route(
+                    destination
+                ),
+            )
+
+            villager.owner.resource_transport.on_end(villager.on_task_ended)
+            villager.task = ResourceTransport
+            villager.state_change(STATE_BUSY)
+            villager.owner.resource_transport.start(destination, source)
+            return
+
+    def _find_destination_for_transport(self, resource):
+        destinations_by_priority = {
+            'high': [],
+            'normal': [],
+            'low': [],
+        }
+
+        for destination in self.entities:
+            if not isinstance(destination, Building):
+                continue
+
+            wants = destination.inventory.wants_resources()
+            if not wants:
+                continue
+
+            if resource not in wants:
+                continue
+
+            if hasattr(destination, 'construction'):
+                destinations_by_priority['high'].append(
+                    destination
                 )
+                continue
+            if hasattr(destination, 'factory'):
+                destinations_by_priority['normal'].append(
+                    destination
+                )
+                continue
 
-                for entity in self.entities:
-                    if not isinstance(entity, Building):
-                        continue
+            destinations_by_priority['low'].append(destination)
 
-                    wants = entity.inventory.wants_resources()
-                    common = harvester.resources.intersection(wants)
-                    if not common:
-                        continue
+        for priority, destinations in destinations_by_priority.items():
+            if not destinations:
+                continue
 
-                    harvester.assign_destination(entity)
-
-                    return True
-
-        return False
+            return destinations[0]
 
     def process(self, villagers):
         for villager in villagers:
@@ -121,10 +209,12 @@ class VillagerAiSystem:
 
             task = self.select_task(villager)
             if not task:
+                self.handle_idle_villager(villager)
                 continue
 
             target = self.target_for_task(task)
             if not target:
+                self.handle_idle_villager(villager)
                 continue
 
             component = getattr(villager.owner, task.exposed_as)
@@ -141,13 +231,14 @@ class VillagerAiSystem:
                 villager.task = task
                 villager.state_change(STATE_BUSY)
             else:
-                logger.info(
+                logger.debug(
                     'process_component_rejected',
                     system=self.__class__.__name__,
                     task=task,
                     target=target,
                     villager=villager.owner,
                 )
+                self.handle_idle_villager(villager)
 
     def select_task(self, villager):
         available_tasks = villager.available_tasks(self.tasks)
