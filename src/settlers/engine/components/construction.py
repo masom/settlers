@@ -45,7 +45,7 @@ class ConstructionWorker(_Worker):
 
     exposed_as = 'construction'
 
-    _target_components = []
+    _target_components = set([])
 
     def __init__(self, owner, abilities):
         super().__init__(owner)
@@ -55,7 +55,7 @@ class ConstructionWorker(_Worker):
     @classmethod
     def target_components(cls):
         if not cls._target_components:
-            cls._target_components.append(Construction)
+            cls._target_components.add(Construction)
         return cls._target_components
 
 
@@ -88,6 +88,7 @@ class Construction(Component):
                 raise RuntimeError('cannot build')
 
         self.workers.append(weakref.ref(worker))
+        return True
 
     def can_add_worker(self):
         return len(self.workers) < self.spec.max_workers

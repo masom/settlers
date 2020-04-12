@@ -89,12 +89,12 @@ class Pipeline:
 
 
 class FactoryWorker(_Worker):
-    _target_components = []
+    _target_components = set([])
 
     @classmethod
     def target_components(cls):
         if not cls._target_components:
-            cls._target_components.append(Factory)
+            cls._target_components.add(Factory)
         return cls._target_components
 
 
