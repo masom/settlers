@@ -58,7 +58,7 @@ class TravelSystem:
     component_types = set([Travel, Position, Velocity])
 
     def process(self, entities):
-        for travel, position, velocity in entities:
+        for position, travel, velocity in entities:
             if not travel.destination:
                 travel.state_change(STATE_IDLE)
                 continue
@@ -90,15 +90,16 @@ class TravelSystem:
 
 class ResourceTransport(Component):
     __slots__ = [
-        '_common_route_resources', 'destination', 'source'
+        '_common_route_resources', 'destination', 'direction', 'source'
     ]
 
-    exposed_as = 'travel'
+    exposed_as = 'resource_transport'
     exposed_methods = ['on_end', 'start', 'stop']
 
     def __init__(self, owner):
         super().__init__(owner)
 
+        self._common_route_resources = None
         self.destination = None
         self.direction = TRANSPORT_DIRECTION_SOURCE
         self.source = None

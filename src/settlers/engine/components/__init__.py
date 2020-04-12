@@ -65,7 +65,9 @@ class Components:
             component_instance = component_class(self.owner, *arguments)
 
         self.component_classes.add(component_instance.__class__)
+
         self.components.append(component_instance)
+        self.components.sort(key=lambda k: k.__class__.__name__)
 
         if hasattr(component_instance, 'exposed_as'):
             multiple = False

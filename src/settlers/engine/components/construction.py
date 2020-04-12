@@ -1,7 +1,7 @@
 import structlog
 import weakref
-from settlers.entities.components import Component
-from settlers.entities.components.worker import Worker as _Worker
+from settlers.engine.components import Component
+from settlers.engine.components.worker import Worker as _Worker
 
 STATE_NEW = 'new'
 STATE_IN_PROGRESS = 'in_progress'
@@ -42,6 +42,8 @@ class ConstructionSpec:
 
 class ConstructionWorker(_Worker):
     __slots__ = ['abilities']
+
+    exposed_as = 'construction'
 
     _target_components = []
 

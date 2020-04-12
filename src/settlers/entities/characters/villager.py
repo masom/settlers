@@ -1,11 +1,14 @@
 import names
 
 from settlers.engine.entities.entity import Entity
+from settlers.engine.components.construction import (
+    ConstructionWorker
+)
 from settlers.engine.components.factory import (
     FactoryWorker
 )
 from settlers.engine.components.movement import (
-    Travel, Velocity
+    ResourceTransport, Travel, Velocity
 )
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
 from settlers.entities.resources.tree import TreeLog
@@ -23,6 +26,7 @@ class Villager(Entity):
         Travel,
         Velocity,
         FactoryWorker,
+        ResourceTransport,
     ]
 
     def __init__(self, name=None):
@@ -36,6 +40,9 @@ class Villager(Entity):
     def initialize(self):
         self.components.add(
             (Harvester, [TreeLog], ResourceStorage(True, True, 5)),
+        )
+        self.components.add(
+            (ConstructionWorker, [])
         )
 
         super().initialize()

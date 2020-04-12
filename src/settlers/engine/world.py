@@ -29,9 +29,7 @@ class World:
         components = []
 
         for entity in self.entities:
-            classes = set([
-                component.__class__ for component in entity.components
-            ])
+            classes = entity.components.classes()
 
             if classes.issuperset(wants):
                 entity_components = [
