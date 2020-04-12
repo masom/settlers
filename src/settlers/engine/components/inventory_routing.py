@@ -23,35 +23,34 @@ class InventoryRouting(Component):
 
         self.priority_list = priority_list
 
-    def available_for_transport(self, requested_resources):
+    def available_for_transport(self, requested_resources=None):
         storages = self.owner.storages
         building_resources = set(storages.keys())
 
-        requested_resource_keys = set(requested_resources)
-        common = requested_resource_keys.intersection(building_resources)
+        common = None
+        if requested_resources:
+            requested_resource_keys = set(requested_resources)
+            common = requested_resource_keys.intersection(building_resources)
 
-        if not common:
-            return None
+            if not common:
+                return None
+
+        if common:
+            transportable = common
+        else:
+            transportable = building_resources
 
         available = {}
-        for resource in common:
+        for resource in transportable:
             storage = storages[resource]
             if storage.allows_outgoing:
                 available[resource] = not storage.is_empty()
             else:
                 available[resource] = False
 
-        logger.debug(
-            'available_for_transport',
-            available=available,
-            owner=self.owner,
-            component=self.__class__.__name__,
-        )
-
-        for item in self.priority_list:
-            if item in common:
-                if available[item]:
-                    return item
+        for item in transportable:
+            if available[item]:
+                return item
 
     def can_receive_resources(self):
         if len(self.owner.storages) == 0:

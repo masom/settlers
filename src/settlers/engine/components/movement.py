@@ -81,7 +81,7 @@ class TravelSystem:
                 continue
 
             if travel.state == STATE_MOVING:
-                if destination.position == self.owner.position:
+                if destination.position == travel.owner.position:
                     travel.stop()
                     continue
 
@@ -94,7 +94,7 @@ class ResourceTransport(Component):
     ]
 
     exposed_as = 'resource_transport'
-    exposed_methods = ['on_end', 'start', 'stop']
+    exposed_methods = ['is_valid_route', 'on_end', 'start', 'stop']
 
     def __init__(self, owner):
         super().__init__(owner)
@@ -128,14 +128,14 @@ class ResourceTransport(Component):
         ]
 
         destination_items = set(accepted_resources)
-        worker_items = set(self.owner.resources.keys())
+        worker_items = set(self.owner.storages.keys())
 
         self._common_route_resources = worker_items.intersection(
             destination_items
         )
 
         logger.debug(
-            'common_route_items',
+            'common_route_resources',
             owner=self.owner,
             component=self.__class__.__name__,
             common_resources=self._common_route_resources,
@@ -144,16 +144,22 @@ class ResourceTransport(Component):
         return self._common_route_resources
 
     def is_valid_route(self, destination=None):
-        return not len(self.common_route_items(destination)) == 0
+        return not len(self.common_route_resources(destination)) == 0
 
     def position(self):
         return self.owner.position
 
-    def start(self, destination):
+    def start(self, destination, source=None):
         if self.destination:
             raise RuntimeError('already going somewhere')
 
+        if source:
+            self.source = weakref.ref(source)
+        else:
+            source = None
+
         self.destination = weakref.ref(destination)
+        return True
 
     def stop(self):
         super().stop()
@@ -195,36 +201,36 @@ class ResourceTransportSystem:
         if not source:
             return
 
-        resources = resource_transport.common_route_items()
+        resources = resource_transport.common_route_resources()
 
         if not source.inventory.available_for_transport(resources):
             return
 
-        if not resource_transport.position() == source.position():
+        if not resource_transport.position() == source.position:
             resource_transport.state_change(STATE_MOVING)
             resource_transport.owner.travel.start(source)
             return
 
-        self.state_change(STATE_LOADING)
+        resource_transport.state_change(STATE_LOADING)
 
     def handle_loading(self, resource_transport):
         source = resource_transport.source()
         if not source:
-            self.state_change(STATE_IDLE)
+            resource_transport.state_change(STATE_IDLE)
 
-        if not resource_transport.position() == source.position():
-            self.state_change(STATE_IDLE)
+        if not resource_transport.position() == source.position:
+            resource_transport.state_change(STATE_IDLE)
             return
 
-        resources = resource_transport.common_route_items()
-        routing = source.inventory_routing
+        resources = resource_transport.common_route_resources()
+        routing = source.inventory
 
         resource = routing.available_for_transport(resources)
         if not resource:
             resource_transport.state_change(STATE_IDLE)
             return
 
-        storage = resource_transport.resources[resource]
+        storage = resource_transport.owner.storages[resource]
 
         accepted = []
 
@@ -310,7 +316,7 @@ class ResourceTransportSystem:
         rejected = []
 
         for resource in resources:
-            storage = resource_transport.resources[resource]
+            storage = resource_transport.owner.storages[resource]
 
             while not storage.is_empty():
                 item = storage.pop()
