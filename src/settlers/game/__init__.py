@@ -14,7 +14,9 @@ from settlers.engine.components.generative import (
 from settlers.engine.components.harvesting import (
     HarvesterSystem,
 )
-from settlers.engine.components.movement import TravelSystem
+from settlers.engine.components.movement import (
+    ResourceTransportSystem, TravelSystem
+)
 from settlers.entities.resources.tree import (
     Tree, TreeLog, Lumber
 )
@@ -29,6 +31,7 @@ def setup(world):
     world.add_system(GenerativeSystem())
     world.add_system(HarvesterSystem())
     world.add_system(TravelSystem())
+    world.add_system(ResourceTransportSystem())
 
     world.add_entity(Tree(1, 10))
 
