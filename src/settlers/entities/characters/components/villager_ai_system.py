@@ -2,6 +2,9 @@ import random
 import structlog
 
 from settlers.engine.components import Component
+from settlers.engine.components.construction import (
+    ConstructionWorker
+)
 from settlers.engine.components.factory import (
     FactoryWorker
 )
@@ -56,6 +59,7 @@ class VillagerAiSystem:
 
     def __init__(self, world):
         self.tasks = [
+            ConstructionWorker,
             Harvester,
             FactoryWorker,
         ]

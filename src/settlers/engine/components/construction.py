@@ -35,7 +35,7 @@ class ConstructionSpec:
     def __del__(self):
         logger.debug(
             '__del__',
-            owner=self.owner,
+            spec=self,
             klass=self.__class__.__name__,
         )
 
@@ -68,7 +68,7 @@ class Construction(Component):
     ]
 
     exposed_as = 'construction'
-    exposed_methods = ['add_builder', 'required_abilities']
+    exposed_methods = ['add_builder', 'can_add_worker', 'required_abilities']
 
     def __init__(self, owner, spec):
         super().__init__(owner)
@@ -78,13 +78,19 @@ class Construction(Component):
         self.ticks = 0
 
     def add_worker(self, worker):
-        if not self.workers < self.spec.max_workers:
+        if not self.can_add_worker():
             return False
 
-        if not worker.abilities.intersection(self.spec.construction_abilities):
-            raise RuntimeError('cannot build')
+        if self.spec.construction_abilities:
+            possible_abilities = self.spec.construction_abilities
+
+            if not worker.abilities.intersection(possible_abilities):
+                raise RuntimeError('cannot build')
 
         self.workers.append(weakref.ref(worker))
+
+    def can_add_worker(self):
+        return len(self.workers) < self.spec.max_workers
 
     def construction_resources(self):
         return self.spec.construction_resources
@@ -117,10 +123,14 @@ class Construction(Component):
 
 
 class ConstructionSystem:
+    component_types = set([
+        Construction
+    ])
+
     def process(self, buildings):
         for building in buildings:
             if building.state == STATE_NEW:
-                if not self.workers:
+                if not building.workers:
                     continue
 
                 if not self.can_build(building):
@@ -133,11 +143,13 @@ class ConstructionSystem:
                 if not self.workers:
                     continue
 
-                building.ticks += 1
+                building.ticks += len(self.workers)
 
                 if not building.is_completed():
-                    building.state_change(STATE_COMPLETED)
                     continue
+
+                building.state_change(STATE_COMPLETED)
+                continue
 
             if building.state == STATE_COMPLETED:
                 self.complete(building)
@@ -146,8 +158,8 @@ class ConstructionSystem:
         if not building.workers:
             return False
 
-        for resource, quantity in building.construction_resources.items():
-            storage = building.storages[resource]
+        for resource, quantity in building.construction_resources().items():
+            storage = building.spec.storages[resource]
             if not storage.is_full():
                 return False
 
