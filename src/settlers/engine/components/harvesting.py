@@ -83,6 +83,7 @@ class Harvester(Component):
             owner=self.owner,
             component=self.__class__.__name__,
             delivered=delivered,
+            destination=destination,
             kept=kept
         )
 

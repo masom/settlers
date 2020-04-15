@@ -53,7 +53,7 @@ def build_sawmill(name):
         Lumber: ResourceStorage(False, True, 50),
     }
 
-    sawmill_storages[Lumber].add(TreeLog())
+    sawmill_storages[TreeLog].add(TreeLog())
     sawmill_pipelines = [
         Pipeline(
             [
@@ -110,7 +110,7 @@ def build_sawmill_construction_site(name):
 
     spec = ConstructionSpec(
         [
-            (Factory, sawmill_pipelines)
+            (Factory, sawmill_pipelines, 1)
         ],
         [
         ],

@@ -43,6 +43,7 @@ class VillagerAi(Component):
         return self._available_tasks
 
     def on_task_ended(self, component):
+        logger.info('on_task_ended', component=component)
         self.task = None
         self.state_change(STATE_IDLE)
 
@@ -88,15 +89,13 @@ class VillagerAiSystem:
         if not harvester.state == HARVESTER_STATE_FULL:
             return
 
-        if harvester.destination:
-            return
-
         logger.debug(
             'handle_busy_villager_harvester_destination_selection',
             owner=villager.owner,
             system=self.__class__.__name__,
         )
 
+        possible_destinations = []
         for entity in self.entities:
             if not isinstance(entity, Building):
                 continue
@@ -106,8 +105,10 @@ class VillagerAiSystem:
             if not common:
                 continue
 
-            harvester.assign_destination(entity)
-            return
+            possible_destinations.append(entity)
+
+        destination = random.choice(possible_destinations)
+        harvester.assign_destination(destination)
 
     def handle_busy_villager(self, villager):
         if villager.task == Harvester:
