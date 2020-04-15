@@ -217,6 +217,7 @@ class ResourceTransportSystem:
         source = resource_transport.source()
         if not source:
             resource_transport.state_change(STATE_IDLE)
+            return
 
         if not resource_transport.position() == source.position:
             resource_transport.state_change(STATE_IDLE)
@@ -231,7 +232,6 @@ class ResourceTransportSystem:
             return
 
         storage = resource_transport.owner.storages[resource]
-
         accepted = []
 
         while not storage.is_full():
@@ -261,16 +261,17 @@ class ResourceTransportSystem:
             resource_transport.state_change(STATE_IDLE)
             return
 
+        resource_transport.state_change(STATE_MOVING)
         resource_transport.owner.travel.start(destination)
 
     def handle_movement(self, resource_transport):
-        if self.direction == TRANSPORT_DIRECTION_SOURCE:
+        if resource_transport.direction == TRANSPORT_DIRECTION_SOURCE:
             if not resource_transport.source:
                 resource_transport.state_change(STATE_IDLE)
                 return
 
             source = resource_transport.source()
-            if resource_transport.position() == source.position():
+            if resource_transport.position() == source.position:
                 resource_transport.state_change(STATE_LOADING)
                 return
         else:
@@ -285,7 +286,7 @@ class ResourceTransportSystem:
                 resource_transport.state_change(STATE_IDLE)
                 return
 
-            if resource_transport.position() == destination.position():
+            if resource_transport.position() == destination.position:
                 resource_transport.state_change(STATE_UNLOADING)
                 return
 
@@ -307,7 +308,7 @@ class ResourceTransportSystem:
             )
             return
 
-        if not destination.can_receive_resources():
+        if not destination.inventory.can_receive_resources():
             return
 
         resources = resource_transport.common_route_resources()
@@ -324,7 +325,7 @@ class ResourceTransportSystem:
                     rejected.append(item)
                     continue
 
-                if destination.receive_resource(item):
+                if destination.inventory.receive_resource(item):
                     accepted.append(item)
                     continue
 

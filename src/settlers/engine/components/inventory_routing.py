@@ -13,6 +13,7 @@ class InventoryRouting(Component):
     exposed_methods = [
         'available_for_transport',
         'can_receive_resources',
+        'receive_resource',
         'remove_inventory',
         'storage_for',
         'wants_resources'
@@ -25,7 +26,10 @@ class InventoryRouting(Component):
 
     def available_for_transport(self, requested_resources=None):
         storages = self.owner.storages
-        building_resources = set(storages.keys())
+        building_resources = set([
+            r for (r, s) in storages.items()
+            if s.allows_outgoing
+        ])
 
         common = None
         if requested_resources:
@@ -57,8 +61,9 @@ class InventoryRouting(Component):
             return False
 
         for storage in self.owner.storages.values():
-            if storage.allows_incoming:
-                return True
+            if not storage.allows_incoming:
+                return False
+            return not storage.is_full()
 
         return False
 

@@ -141,10 +141,10 @@ class ConstructionSystem:
                 continue
 
             if building.state == STATE_IN_PROGRESS:
-                if not self.workers:
+                if not building.workers:
                     continue
 
-                building.ticks += len(self.workers)
+                building.ticks += len(building.workers)
 
                 if not building.is_completed():
                     continue
@@ -160,13 +160,15 @@ class ConstructionSystem:
             return False
 
         for resource, quantity in building.construction_resources().items():
-            storage = building.spec.storages[resource]
+            storage = building.owner.storages[resource]
             if not storage.is_full():
                 return False
 
         return True
 
     def complete(self, building):
+        building.stop()
+
         building.owner.components.remove(building)
         building.owner.storages = {}
 
@@ -176,9 +178,13 @@ class ConstructionSystem:
         for component in building.spec.components:
             building.owner.components.add(component)
 
-        for worker in building.workers:
+        for worker_ref in building.workers:
+            worker = worker_ref()
+            if not worker:
+                continue
+
             worker.workplace = None
-            worker.state_change(BUILDER_STATE_IDLE)
+            worker.stop()
 
         building.workers = []
         building.spec = None
