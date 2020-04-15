@@ -311,8 +311,7 @@ class HarvesterSystem:
 
         destination = worker.destination()
         if not destination:
-            worker.destination = None
-            worker.state_change(STATE_IDLE)
+            worker.stop()
             return
 
         if destination.position == worker.position():
@@ -320,8 +319,14 @@ class HarvesterSystem:
             worker.state_change(STATE_IDLE)
             return
 
-        if hasattr(worker.owner, 'travel'):
+        if not worker.owner.travel.destination:
             worker.owner.travel.start(destination)
+            return
+
+        travel_destination = worker.owner.travel.destination()
+        if not travel_destination.position == destination.position:
+            raise RuntimeError('we got a problem')
+            return
 
     def handle_harvesting(self, worker):
         if worker.storage.is_full():
@@ -346,6 +351,30 @@ class HarvesterSystem:
 
         resource = source.output
 
+        if not worker.position() == source.position():
+            travel = worker.owner.travel
+            destination = travel.destination
+
+            if destination:
+                if destination().position == source.position():
+                    return
+                else:
+                    raise RuntimeError('we got a problem')
+
+            logger.debug(
+                'handle_harvesting_location_difference',
+                system=self.__class__.__name__,
+                source=source,
+                worker=worker,
+                source_position=source.position(),
+                worker_position=worker.position(),
+            )
+
+            worker.ticks = 0
+
+            travel.start(source.owner)
+            return
+
         if not worker.can_harvest(resource):
             logger.debug(
                 'handle_harvesting_cannot_harvest',
@@ -357,19 +386,6 @@ class HarvesterSystem:
 
             worker.source = None
             worker.state_change(STATE_IDLE)
-            return
-
-        if not worker.position() == source.position():
-            logger.debug(
-                'handle_harvesting_location_difference',
-                system=self.__class__.__name__,
-                source=source,
-                worker=worker,
-                source_position=source.position(),
-                worker_position=worker.position(),
-            )
-
-            worker.ticks = 0
             return
 
         value = source.harvestable_quantity()

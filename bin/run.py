@@ -2,7 +2,8 @@ import structlog
 import path_fix # noqa
 
 from settlers.engine.world import World
-from settlers.game import setup
+from settlers.game.ui import Manager
+
 
 structlog.configure(
     processors=[
@@ -21,12 +22,7 @@ structlog.configure(
 logger = structlog.get_logger('run')
 
 world = World()
-setup(world)
 
-world.initialize()
-
-for _ in range(50):
-    logger.debug(
-        'tick'
-    )
-    world.process()
+m = Manager()
+m.initialize(world)
+m.start()
