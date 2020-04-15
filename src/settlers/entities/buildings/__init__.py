@@ -1,3 +1,4 @@
+from settlers.entities.renderable import Renderable
 from settlers.engine.entities.entity import Entity
 
 from settlers.engine.components.inventory_routing import InventoryRouting
@@ -16,6 +17,10 @@ class Building(Entity):
     def initialize(self):
         self.components.add(
             (InventoryRouting, self.inventory_routing_priority)
+        )
+
+        self.components.add(
+            (Renderable, 'building')
         )
 
         super().initialize()

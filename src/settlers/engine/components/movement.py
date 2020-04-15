@@ -1,3 +1,4 @@
+import math
 import structlog
 import weakref
 
@@ -13,13 +14,11 @@ logger = structlog.get_logger('engine.movement')
 
 
 class Velocity(Component):
-    __slots__ = ['x', 'y']
+    __slots__ = ['speed']
 
-    def __init__(self, owner):
+    def __init__(self, owner, speed=1):
         super().__init__(owner)
-
-        self.x = 0
-        self.y = 0
+        self.speed = speed
 
 
 DIRECTION_UP = 'up'
@@ -35,7 +34,7 @@ class Travel(Component):
     __slots__ = ['destination']
 
     exposed_as = 'travel'
-    exposed_methods = ['on_end', 'start', 'stop']
+    exposed_methods = ['destination', 'on_end', 'start', 'stop']
 
     def __init__(self, owner):
         super().__init__(owner)
@@ -44,6 +43,13 @@ class Travel(Component):
 
     def start(self, destination):
         if self.destination:
+            logger.error(
+                'start_failed_destination_set',
+                component=self.__class__.__name__,
+                owner=self.owner,
+                destination=self.destination,
+                proposed_destination=destination,
+            )
             raise RuntimeError('already moving somewhere')
 
         self.destination = weakref.ref(destination)
@@ -52,6 +58,7 @@ class Travel(Component):
     def stop(self):
         super().stop()
         self.destination = None
+        self.state_change(STATE_IDLE)
 
 
 class TravelSystem:
@@ -72,8 +79,7 @@ class TravelSystem:
                     system=self.__class__.__name__,
                 )
 
-                travel.destination = None
-                travel.state_change(STATE_IDLE)
+                travel.stop()
                 continue
 
             if travel.state == STATE_IDLE:
@@ -85,7 +91,26 @@ class TravelSystem:
                     travel.stop()
                     continue
 
-                position.update(velocity)
+                destination_position = destination.position.reveal()
+
+                delta_x = destination_position.x - position.x
+                delta_y = destination_position.y - position.y
+    
+                distance = math.sqrt(
+                    math.pow(delta_x, 2)
+                    + math.pow(delta_y, 2)
+                )
+
+                if distance > velocity.speed:
+                    ratio = velocity.speed / distance
+                    new_x = round((ratio * delta_x) + position.x)
+                    new_y = round((ratio * delta_y) + position.y)
+                else:
+                    new_x = destination_position.x
+                    new_y = destination_position.y
+
+                position.x = new_x
+                position.y = new_y
 
 
 class ResourceTransport(Component):
@@ -276,14 +301,13 @@ class ResourceTransportSystem:
                 return
         else:
             if not resource_transport.destination:
-                resource_transport.state_change(STATE_IDLE)
+                resource_transport.stop()
                 return
 
             destination = resource_transport.destination()
 
             if not destination:
-                resource_transport.destination = None
-                resource_transport.state_change(STATE_IDLE)
+                resource_transport.stop()
                 return
 
             if resource_transport.position() == destination.position:
@@ -292,14 +316,12 @@ class ResourceTransportSystem:
 
     def handle_unloading(self, resource_transport):
         if not resource_transport.destination:
-            resource_transport.state_change(STATE_IDLE)
-            resource_transport.destination = None
+            resource_transport.stop()
             return
 
         destination = resource_transport.destination()
         if not destination:
-            resource_transport.state_change(STATE_IDLE)
-            resource_transport.destination = None
+            resource_transport.stop()
             return
 
         if not resource_transport.position() == destination.position:
@@ -345,7 +367,7 @@ class ResourceTransportSystem:
         )
 
         resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
-        resource_transport.state_change(STATE_IDLE)
+        resource_transport.state_change(STATE_MOVING)
 
         if resource_transport.source:
             source = resource_transport.source()

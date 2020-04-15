@@ -3,16 +3,18 @@ import structlog
 
 from settlers.engine.components import Component
 from settlers.engine.components.construction import (
-    Construction, ConstructionWorker
+    ConstructionWorker
 )
 from settlers.engine.components.factory import (
-    Factory, FactoryWorker
+    FactoryWorker
 )
 from settlers.engine.components.harvesting import (
-    Harvester, STATE_FULL as HARVESTER_STATE_FULL
+    Harvester,
+    STATE_FULL as HARVESTER_STATE_FULL,
+    STATE_DELIVERING as HARVESTER_STATE_DELIVERING
 )
 from settlers.engine.components.movement import (
-    ResourceTransport, Travel
+    ResourceTransport
 )
 
 from settlers.entities.buildings import Building
@@ -89,12 +91,6 @@ class VillagerAiSystem:
         if not harvester.state == HARVESTER_STATE_FULL:
             return
 
-        logger.debug(
-            'handle_busy_villager_harvester_destination_selection',
-            owner=villager.owner,
-            system=self.__class__.__name__,
-        )
-
         possible_destinations = []
         for entity in self.entities:
             if not isinstance(entity, Building):
@@ -106,6 +102,15 @@ class VillagerAiSystem:
                 continue
 
             possible_destinations.append(entity)
+
+        if not possible_destinations:
+            logger.debug(
+                'handle_busy_villager_harvester_destination_selection',
+                owner=villager.owner,
+                system=self.__class__.__name__,
+                possible_destinations=possible_destinations,
+            )
+            return
 
         destination = random.choice(possible_destinations)
         harvester.assign_destination(destination)

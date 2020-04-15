@@ -215,31 +215,27 @@ class FactorySystem:
                 self.workers.remove(worker_reference)
                 continue
 
-            # each worker should be on a different pipeline
             if not worker.can_work():
-                logger.debug(
-                    'process_worker_cannot_work',
-                    worker=worker,
-                    factory=factory,
-                    system=self.__class__.__name__,
-                )
-
                 if worker.pipeline:
                     worker.pipeline.reserved = False
                     worker.pipeline = None
 
                 worker.progress = 0
+
+                if not worker.owner.position == factory.position():
+                    destination = worker.owner.travel.destination
+                    if destination:
+                        if destination().position == factory.position():
+                            continue
+                        else:
+                            raise RuntimeError('we got a problem')
+
+                    worker.owner.travel.start(factory.owner)
                 continue
 
             if not worker.is_active():
                 self.activate_pipeline_on_worker(factory, worker)
                 if not worker.pipeline:
-                    logger.debug(
-                        'process_workers_no_available_pipeline',
-                        worker=worker,
-                        factory=factory,
-                        system=self.__class__.__name__
-                    )
                     continue
 
             pipeline = worker.pipeline()

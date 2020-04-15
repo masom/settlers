@@ -7,16 +7,18 @@ from settlers.engine.components.construction import (
 from settlers.engine.components.factory import (
     FactoryWorker
 )
+from settlers.engine.components.harvesting import Harvester
 from settlers.engine.components.movement import (
     ResourceTransport, Travel, Velocity
 )
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
-from settlers.entities.resources.tree import (
-    Lumber, TreeLog
-)
-from settlers.engine.components.harvesting import Harvester
+
 from settlers.entities.characters.components.villager_ai_system import (
     VillagerAi
+)
+from settlers.entities.renderable import Renderable
+from settlers.entities.resources.tree import (
+    Lumber, TreeLog
 )
 
 
@@ -26,7 +28,7 @@ class Villager(Entity):
     components = [
         VillagerAi,
         Travel,
-        Velocity,
+        (Velocity, 2),
         FactoryWorker,
         ResourceTransport,
     ]
@@ -50,6 +52,10 @@ class Villager(Entity):
         )
         self.components.add(
             (ConstructionWorker, [])
+        )
+
+        self.components.add(
+            (Renderable, 'villager')
         )
 
         super().initialize()
