@@ -55,7 +55,7 @@ class Villager(Entity):
         )
 
         self.components.add(
-            (Renderable, 'villager')
+            (Renderable, 'villager', 2)
         )
 
         super().initialize()

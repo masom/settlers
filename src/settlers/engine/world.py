@@ -1,7 +1,7 @@
 class World:
-    __slots__ = ['entities', 'random_seed', 'systems']
+    __slots__ = ['entities', 'map', 'random_seed', 'systems']
 
-    def __init__(self, random_seed=None):
+    def __init__(self, random_seed=None, map=None):
         self.entities = []
         self.systems = []
         self.random_seed = random_seed
