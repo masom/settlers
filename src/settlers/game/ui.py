@@ -1,8 +1,12 @@
+import itertools
+import pathlib
+import random
 import sdl2
 import sdl2.ext
 import structlog
 
 from settlers.engine.entities.position import Position
+from settlers.entities.map import Map
 from settlers.entities.renderable import Renderable
 from settlers.game.setup import setup
 
@@ -12,44 +16,64 @@ logger = structlog.get_logger('game.manager')
 class RenderSystem:
     component_types = set([Renderable, Position])
 
+    sprites = {
+        'villager': [
+            'medieval_rts/unit/villager_man_blue.png',
+            'medieval_rts/unit/villager_man_green.png',
+            'medieval_rts/unit/villager_man_grey.png',
+            'medieval_rts/unit/villager_man_red.png',
+            'medieval_rts/unit/villager_woman_blue.png',
+            'medieval_rts/unit/villager_woman_green.png',
+            'medieval_rts/unit/villager_woman_grey.png',
+            'medieval_rts/unit/villager_woman_red.png',
+        ],
+        'building': ['hexagon_tiles/tiles/medieval/medieval_lumber.png'],
+        'construction': ['hexagon_tiles/tiles/medieval/medieval_ruins.png'],
+        'tree': ['hexagon_tiles/objects/treePine_large.png'],
+        'tile': ['hexagon_tiles/tiles/terrain/grass/grass_05.png']
+    }
+
     def __init__(self, renderer, sprite_factory):
         self.renderer = renderer
         self.sprite_factory = sprite_factory
 
+    def load_sprite(self, sprite_file):
+        path = pathlib.Path(__file__).parent / 'resources' / 'png'
+        path = path / sprite_file
+
+        return self.sprite_factory.from_image(str(path))
+
     def process(self, renderables):
-        sprites = []
-        sprite_factory = self.sprite_factory
+        z_sprites = [
+            [],
+            [],
+            [],
+            []
+        ]
 
         for position, renderable in renderables:
             if not renderable.sprite:
-                if renderable.type == 'villager':
-                    renderable.sprite = sprite_factory.from_color(
-                            (15, 15, 15),
-                            (20, 20)
-                    )
-                elif renderable.type == 'building':
-                    renderable.sprite = sprite_factory.from_color(
-                        (100, 100, 100),
-                        (20, 20)
-                    )
-                elif renderable.type == 'tree':
-                    renderable.sprite = sprite_factory.from_color(
-                        (0, 200, 0),
-                        (20, 20)
-                    )
-                else:
-                    continue
+                type = renderable.type
+                if renderable.type == 'building' and hasattr(renderable.owner, 'construction'):
+                    type = 'construction'
+                sprite_path = random.choice(self.sprites[type])
+                renderable.sprite = self.load_sprite(sprite_path)
 
             renderable.sprite.x = position.x
             renderable.sprite.y = position.y
 
-            sprites.append(renderable.sprite)
-        self.renderer.render(sprites=sprites)
+            z_sprites[renderable.z].append(renderable.sprite)
+
+        self.renderer.render(
+            sprites=list(itertools.chain.from_iterable(z_sprites))
+        )
 
 
 class Manager:
     def __init__(self):
         sdl2.ext.init()
+
+        sdl2.SDL_SetHint(sdl2.SDL_HINT_RENDER_SCALE_QUALITY, b"1")
 
         window_flags = (
             sdl2.video.SDL_WINDOW_BORDERLESS &
@@ -78,12 +102,18 @@ class Manager:
         sdl2.SDL_RaiseWindow(self.window.window)
 
         self.world = world
+
         setup(self.world)
+
         self.world.initialize()
+
         self.render_system = RenderSystem(
             self.sprite_renderer,
             self.sprite_factory
         )
+
+        self.map = Map()
+        self.map.generate()
 
     def start(self):
         last = 0
@@ -94,10 +124,19 @@ class Manager:
         window = self.window
         world = self.world
 
+        tiles = []
+        for tile in itertools.chain.from_iterable(self.map.tiles):
+            tile.initialize()
+            tiles.append([
+                component
+                for component in tile.components
+                if component.__class__ in self.render_system.component_types
+            ])
+
         while True:
             start = sdl2.SDL_GetTicks()
 
-            renderer.clear((200, 200, 200, 2))
+            renderer.clear((0, 0, 0, 0))
 
             duration = start - last
 
@@ -110,9 +149,10 @@ class Manager:
 
             world.process()
 
-            renderables = world.components_matching(
+            renderables = tiles
+            renderables.extend(world.components_matching(
                 self.render_system.component_types
-            )
+            ))
             self.render_system.process(renderables)
 
             sdl2.render.SDL_RenderPresent(self.sprite_renderer.sdlrenderer)

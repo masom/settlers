@@ -1,3 +1,4 @@
+import itertools
 import random
 
 from settlers.engine.components.construction import (
@@ -28,7 +29,7 @@ from settlers.engine.entities.resources.resource_storage import ResourceStorage
 
 
 def setup(world):
-    random.seed(world.random_seed)
+    random.seed(world.random_seed) 
 
     world.add_system(VillagerAiSystem(world))
     world.add_system(FactorySystem())

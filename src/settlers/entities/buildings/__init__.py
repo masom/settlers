@@ -20,7 +20,7 @@ class Building(Entity):
         )
 
         self.components.add(
-            (Renderable, 'building')
+            (Renderable, 'building', 1)
         )
 
         super().initialize()
