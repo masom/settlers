@@ -1,8 +1,11 @@
+# ~ coding: utf-8 ~
+from functools import partial
 import itertools
 import pathlib
 import random
 import sdl2
 import sdl2.ext
+import signal
 import structlog
 
 from settlers.engine.entities.position import Position
@@ -97,6 +100,14 @@ class Manager:
             self.window
         )
 
+        self.setup_signals()
+
+    def setup_signals(self):
+        def wrap_terminate(signum, stackframe):
+            self.terminate(signal, stackframe)
+        signal.signal(signal.SIGINT, wrap_terminate)
+        signal.signal(signal.SIGTERM, wrap_terminate)
+
     def initialize(self, world):
         self.window.show()
         sdl2.SDL_RaiseWindow(self.window.window)
@@ -116,12 +127,11 @@ class Manager:
         self.map.generate()
 
     def start(self):
+        self.running = True
         last = 0
-
         frame_duration = 1.0 / 16 * 1000
 
         renderer = self.renderer
-        window = self.window
         world = self.world
 
         tiles = []
@@ -133,15 +143,10 @@ class Manager:
                 if component.__class__ in self.render_system.component_types
             ])
 
-        while True:
+        while self.running:
             start = sdl2.SDL_GetTicks()
 
             renderer.clear((0, 0, 0, 0))
-
-            duration = start - last
-
-            if duration < frame_duration:
-                sdl2.SDL_Delay(int(frame_duration - duration))
 
             for event in sdl2.ext.get_events():
                 if event.type == sdl2.SDL_QUIT:
@@ -155,9 +160,6 @@ class Manager:
             ))
             self.render_system.process(renderables)
 
-            sdl2.render.SDL_RenderPresent(self.sprite_renderer.sdlrenderer)
-            window.refresh()
-
             last = sdl2.SDL_GetTicks()
 
             logger.debug(
@@ -165,3 +167,11 @@ class Manager:
                 start=start,
                 end=last,
             )
+
+            duration = start - last
+
+            if duration < frame_duration:
+                sdl2.SDL_Delay(int(frame_duration - duration))
+
+    def terminate(self, _signal, _stackframe):
+        self.running = False
