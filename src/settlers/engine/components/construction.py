@@ -14,11 +14,11 @@ logger = structlog.get_logger('engine.construction')
 
 
 class ConstructionSpec:
-    __slots__ = [
+    __slots__ = (
         'components', 'construction_resources',
         'construction_abilities', 'construction_ticks',
         'max_workers', 'name', 'storages'
-    ]
+    )
 
     def __init__(
         self, components,  construction_abilities, construction_resources,
@@ -41,11 +41,11 @@ class ConstructionSpec:
 
 
 class ConstructionWorker(_Worker):
-    __slots__ = ['abilities']
+    __slots__ = ('abilities')
 
     exposed_as = 'construction'
 
-    _target_components = set([])
+    _target_components = []
 
     def __init__(self, owner, abilities):
         super().__init__(owner)
@@ -55,20 +55,20 @@ class ConstructionWorker(_Worker):
     @classmethod
     def target_components(cls):
         if not cls._target_components:
-            cls._target_components.add(Construction)
+            cls._target_components.append(Construction)
         return cls._target_components
 
 
 class Construction(Component):
-    __slots__ = [
+    __slots__ = (
         'spec',
         'state',
         'ticks',
         'workers'
-    ]
+    )
 
     exposed_as = 'construction'
-    exposed_methods = ['add_builder', 'can_add_worker', 'required_abilities']
+    exposed_methods = ('add_builder', 'can_add_worker', 'required_abilities')
 
     def __init__(self, owner, spec):
         super().__init__(owner)
@@ -124,9 +124,9 @@ class Construction(Component):
 
 
 class ConstructionSystem:
-    component_types = set([
-        Construction
-    ])
+    component_types = (
+        Construction,
+    )
 
     def process(self, buildings):
         for building in buildings:
@@ -175,9 +175,6 @@ class ConstructionSystem:
         for resource, storage in building.spec.storages.items():
             building.owner.storages[resource] = storage
 
-        for component in building.spec.components:
-            building.owner.components.add(component)
-
         for worker_ref in building.workers:
             worker = worker_ref()
             if not worker:
@@ -187,5 +184,10 @@ class ConstructionSystem:
             worker.stop()
 
         building.workers = []
+
+        for component_definition in building.spec.components:
+            building.owner.components.add(component_definition)
+
+        building.owner.renderable.reset_sprite()
         building.spec = None
         building.owner = None

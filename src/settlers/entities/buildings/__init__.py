@@ -5,7 +5,7 @@ from settlers.engine.components.inventory_routing import InventoryRouting
 
 
 class Building(Entity):
-    __slots__ = ['inventory_routing_priority', 'name', 'storages']
+    __slots__ = ('inventory_routing_priority', 'name', 'storages')
 
     def __init__(self, name, storages={}, inventory_routing_priority=[]):
         super().__init__()

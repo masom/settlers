@@ -1,6 +1,16 @@
+from collections import defaultdict
 import structlog
 
 logger = structlog.get_logger('components')
+
+
+class ComponentManagerMeta(type):
+    def __getitem__(self, component_class):
+        return self._components[component_class]
+
+
+class ComponentManager(metaclass=ComponentManagerMeta):
+    _components = defaultdict(list)
 
 
 class Components:
@@ -67,7 +77,10 @@ class Components:
         self.component_classes.add(component_instance.__class__)
 
         self.components.append(component_instance)
-        self.components.sort(key=lambda k: k.__class__.__name__)
+
+        ComponentManager[component_instance.__class__].append(
+            component_instance
+        )
 
         if hasattr(component_instance, 'exposed_as'):
             multiple = False
@@ -91,6 +104,8 @@ class Components:
     def remove(self, component):
         self.components.remove(component)
         self.component_classes = set([c.__class__ for c in self.components])
+
+        ComponentManager[component.__class__].remove(component)
 
         if hasattr(component, 'exposed_as'):
             exposed_as = component.exposed_as
@@ -122,7 +137,22 @@ class ComponentProxy:
         self._exposed_methods = component.exposed_methods
         self._owner = owner
 
-    def reveal(self):
+    '''
+    Reveal the actual object being proxied.
+
+    :param type expected_type: Assert an instance of the provided type
+        will be returned
+    :return: The proxied component
+    '''
+    def reveal(self, expected_type=None):
+        if expected_type:
+            assert isinstance(self._component, expected_type), \
+                "{component} should be {expected_type}, got {type}".format(
+                    component=self._component,
+                    expected_type=expected_type,
+                    type=self._component.__class__
+                )
+            
         return self._component
 
     def __getattr__(self, attr):

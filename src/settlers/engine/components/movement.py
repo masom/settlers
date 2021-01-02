@@ -31,10 +31,10 @@ TRANSPORT_DIRECTION_DESTINATION = 'destination'
 
 
 class Travel(Component):
-    __slots__ = ['destination']
+    __slots__ = ('destination')
 
     exposed_as = 'travel'
-    exposed_methods = ['destination', 'on_end', 'start', 'stop']
+    exposed_methods = ('destination', 'on_end', 'start', 'stop')
 
     def __init__(self, owner):
         super().__init__(owner)
@@ -47,7 +47,7 @@ class Travel(Component):
                 'start_failed_destination_set',
                 component=self.__class__.__name__,
                 owner=self.owner,
-                destination=self.destination,
+                destination=self.destination(),
                 proposed_destination=destination,
             )
             raise RuntimeError('already moving somewhere')
@@ -62,10 +62,10 @@ class Travel(Component):
 
 
 class TravelSystem:
-    component_types = set([Travel, Position, Velocity])
+    component_types = (Travel, Position, Velocity)
 
     def process(self, entities):
-        for position, travel, velocity in entities:
+        for travel, position, velocity in entities:
             if not travel.destination:
                 travel.state_change(STATE_IDLE)
                 continue
@@ -91,7 +91,7 @@ class TravelSystem:
                     travel.stop()
                     continue
 
-                destination_position = destination.position.reveal()
+                destination_position = destination.position.reveal(Position)
 
                 delta_x = destination_position.x - position.x
                 delta_y = destination_position.y - position.y
@@ -114,12 +114,12 @@ class TravelSystem:
 
 
 class ResourceTransport(Component):
-    __slots__ = [
+    __slots__ = (
         '_common_route_resources', 'destination', 'direction', 'source'
-    ]
+    )
 
     exposed_as = 'resource_transport'
-    exposed_methods = ['is_valid_route', 'on_end', 'start', 'stop']
+    exposed_methods = ('is_valid_route', 'on_end', 'start', 'stop')
 
     def __init__(self, owner):
         super().__init__(owner)
@@ -188,17 +188,14 @@ class ResourceTransport(Component):
 
     def stop(self):
         super().stop()
+        self.owner.travel.stop()
         self.destination = None
         self.source = None
         self._common_route_resources = None
 
-    @classmethod
-    def target_components(self):
-        return None
-
 
 class ResourceTransportSystem:
-    component_types = set([ResourceTransport, Travel])
+    component_types = [ResourceTransport, Travel]
 
     def process(self, entities):
         for resource_transport, _travel in entities:
@@ -217,6 +214,7 @@ class ResourceTransportSystem:
             if resource_transport.state == STATE_MOVING:
                 self.handle_movement(resource_transport)
                 continue
+            raise RuntimeError
 
     def handle_idle(self, resource_transport):
         if not resource_transport.source:
