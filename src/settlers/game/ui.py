@@ -1,5 +1,4 @@
 # ~ coding: utf-8 ~
-from functools import partial
 import itertools
 import pathlib
 import random
@@ -17,7 +16,7 @@ logger = structlog.get_logger('game.manager')
 
 
 class RenderSystem:
-    component_types = set([Renderable, Position])
+    component_types = [Renderable, Position]
 
     sprites = {
         'villager': [
@@ -54,7 +53,10 @@ class RenderSystem:
             []
         ]
 
-        for position, renderable in renderables:
+        for renderable, position in renderables:
+            if not isinstance(renderable, Renderable):
+                import pdb; pdb.set_trace()
+
             if not renderable.sprite:
                 type = renderable.type
                 if renderable.type == 'building' and hasattr(renderable.owner, 'construction'):
@@ -129,7 +131,7 @@ class Manager:
     def start(self):
         self.running = True
         last = 0
-        frame_duration = 1.0 / 16 * 1000
+        frame_duration = 1.0 / 120 * 1000
 
         renderer = self.renderer
         world = self.world
@@ -154,7 +156,7 @@ class Manager:
 
             world.process()
 
-            renderables = tiles
+            renderables = list(tiles)
             renderables.extend(world.components_matching(
                 self.render_system.component_types
             ))

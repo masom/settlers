@@ -8,7 +8,6 @@ class MapTile(Entity):
     __slots__ = ['column', 'row', 'sprite']
 
     components = [
-        (Renderable, 'tile', 0)
     ]
 
     def __init__(self, row, column):
@@ -19,10 +18,8 @@ class MapTile(Entity):
         super().__init__()
 
     def initialize(self):
-        position = (Position, self.row * 120, self.column * 140)
-        self.components.add(
-            position
-        )
+        self.components.add((Renderable, 'tile', 0))
+        self.components.add((Position, self.row * 120, self.column * 140))
 
         super().initialize()
 

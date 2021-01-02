@@ -236,7 +236,7 @@ class Harvestable(Component):
         return len(self.workers) < self.max_workers
 
     def harvestable_quantity(self):
-        return getattr(self.owner, self.target_attr)
+        return int(getattr(self.owner, self.target_attr))
 
     def harvested_quantity(self, quantity):
         value = max(0, self.harvestable_quantity() - quantity)
@@ -278,7 +278,7 @@ class Harvestable(Component):
 
 
 class HarvesterSystem:
-    component_types = set([Harvester])
+    component_types = [Harvester]
 
     def process(self, workers):
         for worker in workers:
@@ -325,7 +325,7 @@ class HarvesterSystem:
 
         travel_destination = worker.owner.travel.destination()
         if not travel_destination.position == destination.position:
-            raise RuntimeError('we got a problem')
+            import pdb; pdb.set_trace()
             return
 
     def handle_harvesting(self, worker):

@@ -73,7 +73,7 @@ class VillagerAi(Component):
 
 class VillagerAiSystem:
 
-    component_types = set([VillagerAi])
+    component_types = [VillagerAi]
 
     def __init__(self, world):
         self.tasks = [
@@ -86,7 +86,7 @@ class VillagerAiSystem:
 
     def handle_busy_harvester(self, villager):
         proxy = getattr(villager.owner, Harvester.exposed_as)
-        harvester = proxy.reveal()
+        harvester = proxy.reveal(Harvester)
 
         if not harvester.state == HARVESTER_STATE_FULL:
             return
@@ -114,6 +114,8 @@ class VillagerAiSystem:
 
         destination = random.choice(possible_destinations)
         harvester.assign_destination(destination)
+        harvester.owner.travel.stop()
+        harvester.state_change(HARVESTER_STATE_DELIVERING)
 
     def handle_busy_villager(self, villager):
         if villager.task == Harvester:
@@ -121,14 +123,8 @@ class VillagerAiSystem:
 
     def handle_idle_villager(self, villager):
         if not hasattr(villager.owner, 'resource_transport'):
-            raise
+            import pdb; pdb.set_trace()
             return
-
-        logger.debug(
-            'handle_idle_villager',
-            owner=villager.owner,
-            system=self.__class__.__name__,
-        )
 
         for source in self.entities:
             if not isinstance(source, Building):
@@ -261,7 +257,7 @@ class VillagerAiSystem:
             return None
 
         for entity in self.entities:
-            intersection = target_components.intersection(
+            intersection = set(target_components).intersection(
                 entity.components.classes()
             )
             if intersection:

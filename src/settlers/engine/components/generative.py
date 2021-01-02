@@ -34,7 +34,7 @@ class Generative(Component):
 
 
 class GenerativeSystem:
-    component_types = set([Generative])
+    component_types = [Generative]
 
     def process(self, generators):
         for generator in generators:
