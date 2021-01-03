@@ -1,5 +1,7 @@
 import structlog
+from typing import List
 import weakref
+from settlers.engine.entities.entity import Entity
 from settlers.engine.components import Component
 from settlers.engine.components.worker import Worker as _Worker
 
@@ -21,9 +23,10 @@ class ConstructionSpec:
     )
 
     def __init__(
-        self, components,  construction_abilities, construction_resources,
-        construction_ticks, max_workers, name, storages
-    ):
+        self, components: list,  construction_abilities: list,
+        construction_resources: list, construction_ticks: int,
+        max_workers: int, name: str, storages: dict
+    ) -> None:
         self.components = components
         self.construction_abilities = set(construction_abilities)
         self.construction_resources = construction_resources
@@ -45,15 +48,15 @@ class ConstructionWorker(_Worker):
 
     exposed_as = 'construction'
 
-    _target_components = []
+    _target_components: List[Component] = []
 
-    def __init__(self, owner, abilities):
+    def __init__(self, owner: Entity, abilities: set) -> None:
         super().__init__(owner)
 
         self.abilities = set(abilities)
 
     @classmethod
-    def target_components(cls):
+    def target_components(cls) -> List[Component]:
         if not cls._target_components:
             cls._target_components.append(Construction)
         return cls._target_components
@@ -70,14 +73,14 @@ class Construction(Component):
     exposed_as = 'construction'
     exposed_methods = ('add_builder', 'can_add_worker', 'required_abilities')
 
-    def __init__(self, owner, spec):
+    def __init__(self, owner: Entity, spec: ConstructionSpec) -> None:
         super().__init__(owner)
-        self.workers = []
+        self.workers: List[Entity] = []
         self.spec = spec
         self.state = STATE_NEW
         self.ticks = 0
 
-    def add_worker(self, worker):
+    def add_worker(self, worker: Entity) -> bool:
         if not self.can_add_worker():
             return False
 
@@ -90,19 +93,19 @@ class Construction(Component):
         self.workers.append(weakref.ref(worker))
         return True
 
-    def can_add_worker(self):
+    def can_add_worker(self) -> bool:
         return len(self.workers) < self.spec.max_workers
 
-    def construction_resources(self):
+    def construction_resources(self) -> list:
         return self.spec.construction_resources
 
-    def is_completed(self):
+    def is_completed(self) -> bool:
         return self.ticks >= self.spec.construction_ticks
 
-    def required_abilities(self):
+    def required_abilities(self) -> set:
         return self.spec.construction_abilities
 
-    def state_change(self, new_state):
+    def state_change(self, new_state: str) -> None:
         if self.state == new_state:
             return
 
@@ -128,7 +131,7 @@ class ConstructionSystem:
         Construction,
     )
 
-    def process(self, buildings):
+    def process(self, buildings: List[Entity]) -> None:
         for building in buildings:
             if building.state == STATE_NEW:
                 if not building.workers:
@@ -155,7 +158,7 @@ class ConstructionSystem:
             if building.state == STATE_COMPLETED:
                 self.complete(building)
 
-    def can_build(self, building):
+    def can_build(self, building: List[Entity]) -> bool:
         if not building.workers:
             return False
 
@@ -166,7 +169,7 @@ class ConstructionSystem:
 
         return True
 
-    def complete(self, building):
+    def complete(self, building: Entity) -> None:
         building.stop()
 
         building.owner.components.remove(building)
