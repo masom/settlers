@@ -1,16 +1,8 @@
 from collections import defaultdict
 import structlog
+from typing import List
 
 logger = structlog.get_logger('components')
-
-
-class ComponentManagerMeta(type):
-    def __getitem__(self, component_class):
-        return self._components[component_class]
-
-
-class ComponentManager(metaclass=ComponentManagerMeta):
-    _components = defaultdict(list)
 
 
 class Components:
@@ -225,3 +217,28 @@ class Component:
             callback(self)
 
         self._on_end_callbacks = []
+
+
+class ComponentManagerMeta(type):
+    def __getitem__(self, component_class: type) -> list:
+        return self._components[component_class]
+
+
+class ComponentManager(metaclass=ComponentManagerMeta):
+    _components = defaultdict(list)
+
+    @classmethod
+    def entities_matching(self, selection: List[type]) -> list:
+        entities = []
+        len_selection = len(selection)
+        components = defaultdict(list)
+
+        for component_class in selection:
+            for component in self._components[component_class]:
+                components[component.owner].append(component)
+
+        for entity, entity_components in components.items():
+            if not len(entity_components) == len_selection:
+                continue
+            entities.append((entity, entity_components))
+        return entities

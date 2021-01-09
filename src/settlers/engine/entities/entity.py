@@ -3,7 +3,7 @@ from ..components import Components
 
 class Entity:
     def __init__(self):
-        self.components = Components(self)
+        self.components: Components = Components(self)
 
-    def initialize(self):
+    def initialize(self) -> None:
         self.components.initialize()

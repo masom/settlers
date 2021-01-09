@@ -2,7 +2,7 @@ from settlers.engine.components import Component
 
 
 class Renderable(Component):
-    __slots__ = ['sprite', 'type', 'z']
+    __slots__ = ('sprite', 'type', 'z')
 
     exposed_as = 'renderable'
     exposed_methods = ('reset_sprite')
