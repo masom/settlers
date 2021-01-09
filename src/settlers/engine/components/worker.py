@@ -3,30 +3,30 @@ import weakref
 
 from . import Component
 
-STATE_IDLE = 'idle'
-STATE_ACTIVE = 'active'
+STATE_IDLE: str = 'idle'
+STATE_ACTIVE: str = 'active'
 
 logger = structlog.get_logger('engine.worker')
 
 
 class Worker(Component):
-    __slots__ = [
+    __slots__ = (
         '_on_end_callbacks', 'pipeline', 'progress', 'state', 'workplace'
-    ]
+    )
 
     exposed_as = 'work'
-    exposed_methods = ['on_end', 'start', 'stop']
+    exposed_methods = ('on_end', 'start', 'stop')
 
-    def __init__(self, owner):
+    def __init__(self, owner: object) -> None:
         super().__init__(owner)
 
-        self.state = STATE_IDLE
+        self.state: str = STATE_IDLE
         self.pipeline = None
-        self.progress = 0
+        self.progress: int = 0
         self.workplace = None
-        self._on_end_callbacks = []
+        self._on_end_callbacks: list = []
 
-    def can_work(self):
+    def can_work(self) -> bool:
         if not self.workplace:
             return False
 
@@ -36,16 +36,16 @@ class Worker(Component):
 
         return workplace.position() == self.owner.position
 
-    def is_active(self):
+    def is_active(self) -> bool:
         if not self.can_work():
             return False
 
         return self.state == STATE_ACTIVE
 
-    def on_end(self, callback):
+    def on_end(self, callback: callable) -> None:
         self._on_end_callbacks.append(callback)
 
-    def start(self, target):
+    def start(self, target: Component) -> bool:
         if self.workplace:
             raise RuntimeError('already working')
 
@@ -71,7 +71,7 @@ class Worker(Component):
         self.workplace = weakref.ref(target)
         return True
 
-    def state_change(self, new_state):
+    def state_change(self, new_state: str) -> None:
         if self.state == new_state:
             return
 
@@ -85,7 +85,7 @@ class Worker(Component):
 
         self.state = new_state
 
-    def stop(self):
+    def stop(self) -> None:
         self.state_change(STATE_IDLE)
 
         for callback in self._on_end_callbacks:
@@ -106,7 +106,7 @@ class Worker(Component):
 
         self._on_end_callbacks = []
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{owner}#{component} {id}".format(
             owner=self.owner,
             component=self.__class__.__name__,

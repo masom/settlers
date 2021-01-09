@@ -16,18 +16,18 @@ logger = structlog.get_logger('engine.movement')
 class Velocity(Component):
     __slots__ = ['speed']
 
-    def __init__(self, owner, speed=1):
+    def __init__(self, owner, speed: int = 1):
         super().__init__(owner)
-        self.speed = speed
+        self.speed: int = speed
 
 
-DIRECTION_UP = 'up'
-DIRECTION_DOWN = 'down'
-DIRECTION_LEFT = 'left'
-DIRECTION_RIGHT = 'right'
+DIRECTION_UP: str = 'up'
+DIRECTION_DOWN: str = 'down'
+DIRECTION_LEFT: str = 'left'
+DIRECTION_RIGHT: str = 'right'
 
-TRANSPORT_DIRECTION_SOURCE = 'source'
-TRANSPORT_DIRECTION_DESTINATION = 'destination'
+TRANSPORT_DIRECTION_SOURCE: str  = 'source'
+TRANSPORT_DIRECTION_DESTINATION: str = 'destination'
 
 
 class Travel(Component):
@@ -36,12 +36,12 @@ class Travel(Component):
     exposed_as = 'travel'
     exposed_methods = ('destination', 'on_end', 'start', 'stop')
 
-    def __init__(self, owner):
+    def __init__(self, owner) -> None:
         super().__init__(owner)
 
         self.destination = None
 
-    def start(self, destination):
+    def start(self, destination) -> None:
         if self.destination:
             logger.error(
                 'start_failed_destination_set',
@@ -55,16 +55,16 @@ class Travel(Component):
         self.destination = weakref.ref(destination)
         self.state_change(STATE_MOVING)
 
-    def stop(self):
+    def stop(self) -> None:
         super().stop()
         self.destination = None
         self.state_change(STATE_IDLE)
 
 
 class TravelSystem:
-    component_types = (Travel, Position, Velocity)
+    component_types: list = [Travel, Position, Velocity]
 
-    def process(self, entities):
+    def process(self, entities: list) -> None:
         for travel, position, velocity in entities:
             if not travel.destination:
                 travel.state_change(STATE_IDLE)
@@ -91,18 +91,23 @@ class TravelSystem:
                     travel.stop()
                     continue
 
-                destination_position = destination.position.reveal(Position)
+                destination_position: Position = destination.position.reveal(
+                    Position
+                )
 
-                delta_x = destination_position.x - position.x
-                delta_y = destination_position.y - position.y
-    
-                distance = math.sqrt(
+                delta_x: int = destination_position.x - position.x
+                delta_y: int = destination_position.y - position.y
+
+                distance: float = math.sqrt(
                     math.pow(delta_x, 2)
                     + math.pow(delta_y, 2)
                 )
 
+                new_x: int = 0
+                new_y: int = 0
+
                 if distance > velocity.speed:
-                    ratio = velocity.speed / distance
+                    ratio: float = velocity.speed / distance
                     new_x = round((ratio * delta_x) + position.x)
                     new_y = round((ratio * delta_y) + position.y)
                 else:
@@ -121,21 +126,21 @@ class ResourceTransport(Component):
     exposed_as = 'resource_transport'
     exposed_methods = ('is_valid_route', 'on_end', 'start', 'stop')
 
-    def __init__(self, owner):
+    def __init__(self, owner) -> None:
         super().__init__(owner)
 
         self._common_route_resources = None
         self.destination = None
-        self.direction = TRANSPORT_DIRECTION_SOURCE
+        self.direction: str = TRANSPORT_DIRECTION_SOURCE
         self.source = None
 
-    def common_route_resources(self, destination=None):
+    def common_route_resources(self, destination=None) -> set:
         if destination is None:
             _destination = self.destination()
         else:
             _destination = destination
 
-        is_planned_destination = (
+        is_planned_destination: bool = (
             destination and
             self.destination and
             destination == self.destination()
@@ -168,13 +173,13 @@ class ResourceTransport(Component):
 
         return self._common_route_resources
 
-    def is_valid_route(self, destination=None):
+    def is_valid_route(self, destination=None) -> bool:
         return not len(self.common_route_resources(destination)) == 0
 
-    def position(self):
+    def position(self) -> Position:
         return self.owner.position
 
-    def start(self, destination, source=None):
+    def start(self, destination, source=None) -> None:
         if self.destination:
             raise RuntimeError('already going somewhere')
 
@@ -184,9 +189,8 @@ class ResourceTransport(Component):
             source = None
 
         self.destination = weakref.ref(destination)
-        return True
 
-    def stop(self):
+    def stop(self) -> None:
         super().stop()
         self.owner.travel.stop()
         self.destination = None
@@ -197,7 +201,7 @@ class ResourceTransport(Component):
 class ResourceTransportSystem:
     component_types = [ResourceTransport, Travel]
 
-    def process(self, entities):
+    def process(self, entities: list) -> None:
         for resource_transport, _travel in entities:
             if resource_transport.state == STATE_IDLE:
                 self.handle_idle(resource_transport)
@@ -214,9 +218,11 @@ class ResourceTransportSystem:
             if resource_transport.state == STATE_MOVING:
                 self.handle_movement(resource_transport)
                 continue
+
+            import pdb; pdb.set_trace()
             raise RuntimeError
 
-    def handle_idle(self, resource_transport):
+    def handle_idle(self, resource_transport: ResourceTransport) -> None:
         if not resource_transport.source:
             return
 
@@ -224,7 +230,7 @@ class ResourceTransportSystem:
         if not source:
             return
 
-        resources = resource_transport.common_route_resources()
+        resources: set = resource_transport.common_route_resources()
 
         if not source.inventory.available_for_transport(resources):
             return
@@ -236,7 +242,7 @@ class ResourceTransportSystem:
 
         resource_transport.state_change(STATE_LOADING)
 
-    def handle_loading(self, resource_transport):
+    def handle_loading(self, resource_transport: ResourceTransport) -> None:
         source = resource_transport.source()
         if not source:
             resource_transport.state_change(STATE_IDLE)

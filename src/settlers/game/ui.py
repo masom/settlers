@@ -7,6 +7,7 @@ import sdl2.ext
 import signal
 import structlog
 
+from settlers.engine.components.construction import Construction
 from settlers.engine.entities.position import Position
 from settlers.entities.map import Map
 from settlers.entities.renderable import Renderable
@@ -35,17 +36,17 @@ class RenderSystem:
         'tile': ['hexagon_tiles/tiles/terrain/grass/grass_05.png']
     }
 
-    def __init__(self, renderer, sprite_factory):
+    def __init__(self, renderer: sdl2.ext.Renderer, sprite_factory):
         self.renderer = renderer
         self.sprite_factory = sprite_factory
 
-    def load_sprite(self, sprite_file):
+    def load_sprite(self, sprite_file: str):
         path = pathlib.Path(__file__).parent / 'resources' / 'png'
         path = path / sprite_file
 
         return self.sprite_factory.from_image(str(path))
 
-    def process(self, renderables):
+    def process(self, renderables: list):
         z_sprites = [
             [],
             [],
@@ -54,14 +55,16 @@ class RenderSystem:
         ]
 
         for renderable, position in renderables:
-            if not isinstance(renderable, Renderable):
-                import pdb; pdb.set_trace()
-
             if not renderable.sprite:
-                type = renderable.type
-                if renderable.type == 'building' and hasattr(renderable.owner, 'construction'):
-                    type = 'construction'
-                sprite_path = random.choice(self.sprites[type])
+                t = renderable.type
+
+                if (
+                    renderable.type == 'building' and
+                    hasattr(renderable.owner, Construction.exposed_as)
+                ):
+                    t = 'construction'
+
+                sprite_path = random.choice(self.sprites[t])
                 renderable.sprite = self.load_sprite(sprite_path)
 
             renderable.sprite.x = position.x
@@ -163,12 +166,6 @@ class Manager:
             self.render_system.process(renderables)
 
             last = sdl2.SDL_GetTicks()
-
-            logger.debug(
-                'tick',
-                start=start,
-                end=last,
-            )
 
             duration = start - last
 

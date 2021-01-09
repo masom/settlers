@@ -31,27 +31,18 @@ class World:
 
             system.process(components)
 
-    def components_matching(self, wants: tuple) -> list:
+    def components_matching(self, wants: list) -> list:
         components = []
         len_wants = len(wants)
-        entities = defaultdict(list)
+        entities = ComponentManager.entities_matching(wants)
 
-        for want in wants:
-            components_for_want = ComponentManager[want]
-            for component in components_for_want:
-                entities[component.owner].append(component)
+        method_name = 'extend'
+        if len_wants > 1:
+            method_name = 'append'
 
-        for entity, entity_components in entities.items():
-            if not len(entity_components) == len_wants:
-                continue
+        method = getattr(components, method_name)
 
-            for i in range(len_wants):
-                if not isinstance(entity_components[i], wants[i]):
-                    import pdb; pdb.set_trace()
-
-            if len_wants == 1:
-                components.extend(entity_components)
-            else:
-                components.append(entity_components)
+        for entity, entity_components in entities:
+            method(entity_components)
 
         return components

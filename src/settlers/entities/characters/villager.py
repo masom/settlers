@@ -23,7 +23,7 @@ from settlers.entities.resources.tree import (
 
 
 class Villager(Entity):
-    __slots__ = ['name', 'storage']
+    __slots__ = ('name', 'storage')
 
     components = [
         VillagerAi,
@@ -33,7 +33,7 @@ class Villager(Entity):
         ResourceTransport,
     ]
 
-    def __init__(self, name=None):
+    def __init__(self, name: str = None):
         super().__init__()
 
         if not name:
@@ -46,7 +46,7 @@ class Villager(Entity):
 
         self.name = name
 
-    def initialize(self):
+    def initialize(self) -> None:
         self.components.add(
             (Harvester, [TreeLog], self.storages[TreeLog]),
         )
@@ -60,7 +60,7 @@ class Villager(Entity):
 
         super().initialize()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{klass} {name} {id}>".format(
             klass=self.__class__.__name__,
             name=self.name,
