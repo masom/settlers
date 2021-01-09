@@ -2,7 +2,6 @@ from . import Resource
 from settlers.engine.components.generative import Generative
 from settlers.engine.components.harvesting import (
     Harvestable
-
 )
 from settlers.entities.renderable import Renderable
 

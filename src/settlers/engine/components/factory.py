@@ -109,16 +109,16 @@ class Factory(Component):
         'add_worker', 'can_add_worker', 'remote_worker', 'start', 'stop'
     ]
 
-    def __init__(self, owner, pipelines, max_workers):
+    def __init__(self, owner, pipelines: list, max_workers: int):
         super().__init__(owner)
 
-        self.active = False
-        self.max_workers = max_workers
-        self.pipelines = pipelines
-        self.state = STATE_IDLE
-        self.workers = []
+        self.active: bool = False
+        self.max_workers: int = max_workers
+        self.pipelines: list = pipelines
+        self.state: str = STATE_IDLE
+        self.workers: list = []
 
-    def add_worker(self, worker):
+    def add_worker(self, worker) -> bool:
         if not self.can_add_worker():
             return False
 
@@ -136,7 +136,7 @@ class Factory(Component):
 
         return True
 
-    def can_add_worker(self):
+    def can_add_worker(self) -> bool:
         return len(self.workers) < self.max_workers
 
     def position(self):

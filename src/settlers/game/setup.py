@@ -21,6 +21,9 @@ from settlers.entities.characters.components.villager_ai_system import (
     VillagerAiSystem
 )
 from settlers.entities.characters.villager import Villager
+from settlers.entities.resources.stone import (
+    StoneQuarry, StoneSlab, Stone
+)
 from settlers.entities.resources.tree import (
     Tree, TreeLog, Lumber
 )
@@ -44,6 +47,15 @@ def setup(world):
             (Position, random.randrange(0, 800), random.randrange(0, 600))
         )
         world.add_entity(t)
+    del(t)
+
+    for _ in range(2):
+        q = StoneQuarry(25)
+        q.components.add(
+            (Position, random.randrange(0, 800), random.randrange(0, 600))
+        )
+        world.add_entity(q)
+    del(q)
 
     for _ in range(10):
         v = Villager()
@@ -52,9 +64,10 @@ def setup(world):
         )
 
         world.add_entity(v)
+    del(v)
 
     world.add_entity(build_sawmill('Bob'))
-    world.add_entity(build_sawmill_construction_site('Joseph'))
+    world.add_entity(build_stone_workshop_construction_site('Joseph'))
 
 
 def build_sawmill(name):
@@ -110,6 +123,39 @@ def build_construction_site(spec):
     return construction_site
 
 
+def build_stone_workshop_construction_site(name):
+    workshop_storages = {
+        StoneSlab: ResourceStorage(True, False, 5),
+        Stone: ResourceStorage(False, True, 30),
+    }
+
+    workshop_pipelines = [
+        Pipeline(
+            [
+                PipelineInput(1, StoneSlab, workshop_storages[StoneSlab])
+            ],
+            PipelineOutput(10, Stone, workshop_storages[Stone]),
+            5
+        )
+    ]
+
+    spec = ConstructionSpec(
+        [
+            (Factory, workshop_pipelines, 2)
+        ],
+        [],
+        {
+            Lumber: 10
+        },
+        4,
+        1,
+        "{name}'s stone workshop".format(name=name),
+        workshop_storages
+    )
+
+    return build_construction_site(spec)
+
+
 def build_sawmill_construction_site(name):
     sawmill_storages = {
         TreeLog: ResourceStorage(True, False, 10),
@@ -137,7 +183,7 @@ def build_sawmill_construction_site(name):
         },
         4,
         1,
-        "Jello's Sawmill",
+        "{name}'s Sawmill".format(name=name),
         sawmill_storages
     )
 
