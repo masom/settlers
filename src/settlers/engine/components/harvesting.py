@@ -190,34 +190,34 @@ class Harvester(Component):
 
 
 class Harvestable(Component):
-    __slots__ = [
+    __slots__ = (
         'workers',
         'harvest_value_per_cycle',
         'max_workers',
         'output',
         'target_attr',
         'ticks_per_cycle',
-    ]
+    )
 
     exposed_as = 'harvesting'
-    exposed_methods = [
+    exposed_methods = (
         'add_worker', 'can_add_worker', 'output', 'provides', 'remove_worker'
-    ]
+    )
 
     def __init__(
-        self, owner, target_attr, output, ticks_per_cycle,
-        harvest_value_per_cycle, max_workers
+        self, owner, target_attr: str, output: type, ticks_per_cycle: int,
+        harvest_value_per_cycle: int, max_workers: int
     ):
         super().__init__(owner)
 
-        self.workers = []
-        self.harvest_value_per_cycle = harvest_value_per_cycle
-        self.max_workers = max_workers
-        self.output = output
-        self.target_attr = target_attr
-        self.ticks_per_cycle = ticks_per_cycle
+        self.workers: list = []
+        self.harvest_value_per_cycle: int = harvest_value_per_cycle
+        self.max_workers: int = max_workers
+        self.output: type = output
+        self.target_attr: str = target_attr
+        self.ticks_per_cycle: int = ticks_per_cycle
 
-    def add_worker(self, worker):
+    def add_worker(self, worker) -> bool:
         if len(self.workers) > self.max_workers:
             return False
 
@@ -232,13 +232,13 @@ class Harvestable(Component):
         self.workers.append(worker_ref)
         return True
 
-    def can_add_worker(self):
+    def can_add_worker(self) -> bool:
         return len(self.workers) < self.max_workers
 
-    def harvestable_quantity(self):
+    def harvestable_quantity(self) -> int:
         return int(getattr(self.owner, self.target_attr))
 
-    def harvested_quantity(self, quantity):
+    def harvested_quantity(self, quantity: int) -> int:
         value = max(0, self.harvestable_quantity() - quantity)
 
         logger.debug(
@@ -251,10 +251,10 @@ class Harvestable(Component):
 
         setattr(self.owner, self.target_attr, value)
 
-    def provides(self):
+    def provides(self) -> type:
         return self.output
 
-    def remove_worker(self, entity):
+    def remove_worker(self, entity) -> bool:
         for worker in self.workers:
             if worker.worker() == entity:
                 logger.debug(
@@ -264,12 +264,13 @@ class Harvestable(Component):
                     component=self.__class__.__name__,
                 )
                 self.workers.remove(worker)
-                return
+                return True
+        return False
 
     def position(self):
         return self.owner.position
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{owner}#{component} {id}>".format(
             owner=self.owner,
             component=self.__class__.__name__,
@@ -280,7 +281,7 @@ class Harvestable(Component):
 class HarvesterSystem:
     component_types = [Harvester]
 
-    def process(self, workers):
+    def process(self, workers: list) -> None:
         for worker in workers:
             if worker.state == STATE_IDLE:
                 if not worker.source:
@@ -299,7 +300,7 @@ class HarvesterSystem:
             if worker.state == STATE_DELIVERING:
                 self.handle_delivery(worker)
 
-    def handle_delivery(self, worker):
+    def handle_delivery(self, worker) -> None:
         if not worker.destination:
             logger.debug(
                 'handle_delivery_no_destination',

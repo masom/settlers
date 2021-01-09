@@ -33,6 +33,11 @@ class RenderSystem:
         'building': ['hexagon_tiles/tiles/medieval/medieval_lumber.png'],
         'construction': ['hexagon_tiles/tiles/medieval/medieval_ruins.png'],
         'tree': ['hexagon_tiles/objects/treePine_large.png'],
+        'stone_quarry': [
+            'hexagon_tiles/objects/rockGrey_medium1.png',
+            'hexagon_tiles/objects/rockGrey_medium2.png',
+            'hexagon_tiles/objects/rockGrey_medium3.png'
+        ],
         'tile': ['hexagon_tiles/tiles/terrain/grass/grass_05.png']
     }
 
