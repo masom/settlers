@@ -1,4 +1,4 @@
-from . import Resource
+from settlers.engine.entities.resources import Resource
 from settlers.engine.components.harvesting import (
     Harvestable
 )

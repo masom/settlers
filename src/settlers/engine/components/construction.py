@@ -1,9 +1,10 @@
 import structlog
-from typing import List
+from typing import Dict, List, Optional, Tuple, Type
 import weakref
 from settlers.engine.entities.entity import Entity
+from settlers.engine.entities.resources import Resource
 from settlers.engine.components import Component
-from settlers.engine.components.worker import Worker as _Worker
+from settlers.engine.components.worker import Worker
 
 STATE_NEW = 'new'
 STATE_IN_PROGRESS = 'in_progress'
@@ -14,6 +15,9 @@ BUILDER_STATE_WORKING = 'working'
 
 logger = structlog.get_logger('engine.construction')
 
+ComponentsType = List[Tuple[type, list, int]]
+ConstructionResourcesType = Dict[Type[Resource], int]
+
 
 class ConstructionSpec:
     __slots__ = (
@@ -23,9 +27,13 @@ class ConstructionSpec:
     )
 
     def __init__(
-        self, components: list,  construction_abilities: list,
-        construction_resources: list, construction_ticks: int,
-        max_workers: int, name: str, storages: dict
+        self, components: ComponentsType,
+        construction_abilities: list,
+        construction_resources: ConstructionResourcesType,
+        construction_ticks: int,
+        max_workers: int,
+        name: str,
+        storages: dict
     ) -> None:
         self.components = components
         self.construction_abilities = set(construction_abilities)
@@ -43,12 +51,12 @@ class ConstructionSpec:
         )
 
 
-class ConstructionWorker(_Worker):
+class ConstructionWorker(Worker):
     __slots__ = ('abilities')
 
     exposed_as = 'construction'
 
-    _target_components: List[Component] = []
+    _target_components: List[Type[Component]] = []
 
     def __init__(self, owner: Entity, abilities: set) -> None:
         super().__init__(owner)
@@ -75,12 +83,12 @@ class Construction(Component):
 
     def __init__(self, owner: Entity, spec: ConstructionSpec) -> None:
         super().__init__(owner)
-        self.workers: List[Entity] = []
+        self.workers: List[weakref.ReferenceType[ConstructionWorker]] = []
         self.spec = spec
         self.state = STATE_NEW
         self.ticks = 0
 
-    def add_worker(self, worker: Entity) -> bool:
+    def add_worker(self, worker: ConstructionWorker) -> bool:
         if not self.can_add_worker():
             return False
 
@@ -96,7 +104,7 @@ class Construction(Component):
     def can_add_worker(self) -> bool:
         return len(self.workers) < self.spec.max_workers
 
-    def construction_resources(self) -> list:
+    def construction_resources(self) -> ConstructionResourcesType:
         return self.spec.construction_resources
 
     def is_completed(self) -> bool:
@@ -131,7 +139,7 @@ class ConstructionSystem:
         Construction,
     )
 
-    def process(self, buildings: List[Entity]) -> None:
+    def process(self, buildings: List[Construction]) -> None:
         for building in buildings:
             if building.state == STATE_NEW:
                 if not building.workers:
@@ -158,7 +166,7 @@ class ConstructionSystem:
             if building.state == STATE_COMPLETED:
                 self.complete(building)
 
-    def can_build(self, building: List[Entity]) -> bool:
+    def can_build(self, building: Construction) -> bool:
         if not building.workers:
             return False
 
@@ -169,7 +177,7 @@ class ConstructionSystem:
 
         return True
 
-    def complete(self, building: Entity) -> None:
+    def complete(self, building: Construction) -> None:
         building.stop()
 
         building.owner.components.remove(building)

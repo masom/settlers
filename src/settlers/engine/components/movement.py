@@ -1,5 +1,6 @@
 import math
 import structlog
+from typing import List, Optional
 import weakref
 
 from . import Component
@@ -26,7 +27,7 @@ DIRECTION_DOWN: str = 'down'
 DIRECTION_LEFT: str = 'left'
 DIRECTION_RIGHT: str = 'right'
 
-TRANSPORT_DIRECTION_SOURCE: str  = 'source'
+TRANSPORT_DIRECTION_SOURCE: str = 'source'
 TRANSPORT_DIRECTION_DESTINATION: str = 'destination'
 
 
@@ -39,7 +40,7 @@ class Travel(Component):
     def __init__(self, owner) -> None:
         super().__init__(owner)
 
-        self.destination = None
+        self.destination: Optional[weakref.ReferenceType] = None
 
     def start(self, destination) -> None:
         if self.destination:
@@ -64,7 +65,7 @@ class Travel(Component):
 class TravelSystem:
     component_types: list = [Travel, Position, Velocity]
 
-    def process(self, entities: list) -> None:
+    def process(self, entities: List[List[Component]]) -> None:
         for travel, position, velocity in entities:
             if not travel.destination:
                 travel.state_change(STATE_IDLE)
@@ -129,20 +130,20 @@ class ResourceTransport(Component):
     def __init__(self, owner) -> None:
         super().__init__(owner)
 
-        self._common_route_resources = None
-        self.destination = None
+        self._common_route_resources: Optional[set] = None
+        self.destination: Optional[weakref.ReferenceType] = None
         self.direction: str = TRANSPORT_DIRECTION_SOURCE
-        self.source = None
+        self.source: Optional[weakref.ReferenceType] = None
 
     def common_route_resources(self, destination=None) -> set:
-        if destination is None:
+        if destination is None and self.destination:
             _destination = self.destination()
         else:
             _destination = destination
 
         is_planned_destination: bool = (
-            destination and
-            self.destination and
+            destination is not None and
+            self.destination is not None and
             destination == self.destination()
         )
 
@@ -150,7 +151,10 @@ class ResourceTransport(Component):
             (is_planned_destination or destination is None)
             and self._common_route_resources
         ):
-            return self._common_route_resources
+            return self._common_route_resources or set()
+
+        if not _destination:
+            return set()
 
         accepted_resources = [
             r for (r, s) in _destination.storages.items()
@@ -171,7 +175,7 @@ class ResourceTransport(Component):
             common_resources=self._common_route_resources,
         )
 
-        return self._common_route_resources
+        return self._common_route_resources or set()
 
     def is_valid_route(self, destination=None) -> bool:
         return not len(self.common_route_resources(destination)) == 0
@@ -186,7 +190,7 @@ class ResourceTransport(Component):
         if source:
             self.source = weakref.ref(source)
         else:
-            source = None
+            self.source = None
 
         self.destination = weakref.ref(destination)
 
@@ -243,6 +247,10 @@ class ResourceTransportSystem:
         resource_transport.state_change(STATE_LOADING)
 
     def handle_loading(self, resource_transport: ResourceTransport) -> None:
+        if not resource_transport.source:
+            resource_transport.state_change(STATE_IDLE)
+            return
+
         source = resource_transport.source()
         if not source:
             resource_transport.state_change(STATE_IDLE)
