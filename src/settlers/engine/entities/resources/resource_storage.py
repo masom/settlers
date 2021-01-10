@@ -1,3 +1,6 @@
+from settlers.engine.entities.resources import Resource
+
+
 class ResourceStorage:
     __slots__ = ('allows_incoming', 'allows_outgoing', 'capacity', '_storage')
 
@@ -9,7 +12,7 @@ class ResourceStorage:
         self.capacity = capacity
         self._storage = []
 
-    def add(self, item) -> bool:
+    def add(self, item: Resource) -> bool:
         if len(self._storage) < self.capacity:
             self._storage.append(item)
             return True
@@ -30,8 +33,8 @@ class ResourceStorage:
     def pop(self) -> object:
         return self._storage.pop()
 
-    def remove(self, item) -> object:
+    def remove(self, item: Resource) -> object:
         return self._storage.remove(item)
 
-    def __iter__(self):
+    def __iter__(self) -> iter:
         return iter(self._storage)

@@ -220,12 +220,14 @@ class Component:
 
 
 class ComponentManagerMeta(type):
+    _components: dict = defaultdict(list)
+
     def __getitem__(self, component_class: type) -> list:
         return self._components[component_class]
 
 
 class ComponentManager(metaclass=ComponentManagerMeta):
-    _components = defaultdict(list)
+    _components: dict = defaultdict(list)
 
     @classmethod
     def entities_matching(self, selection: List[type]) -> list:

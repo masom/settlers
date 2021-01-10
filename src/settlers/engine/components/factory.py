@@ -1,27 +1,34 @@
 import structlog
 import weakref
+from typing import List, Tuple, Type
 
 from settlers.engine.components import Component
 from settlers.engine.components.worker import Worker as _Worker
+from settlers.engine.entities.resources import Resource
+from settlers.engine.entities.resources.resource_storage import ResourceStorage
+
 
 STATE_IDLE = 'idle'
 STATE_ACTIVE = 'active'
+
 
 logger = structlog.get_logger('engine.factory')
 
 
 class PipelineInput:
-    __slots__ = ['quantity', 'resource', '_storage']
+    __slots__ = ('quantity', 'resource', '_storage')
 
-    def __init__(self, quantity, resource, storage):
+    def __init__(
+        self, quantity: int, resource: Type[Resource], storage: ResourceStorage
+    ):
         self.resource = resource
         self._storage = storage
         self.quantity = quantity
 
-    def can_consume(self):
+    def can_consume(self) -> bool:
         return self._storage.quantity() >= self.quantity
 
-    def consume(self):
+    def consume(self) -> int:
         consumed = 0
         for quantity in range(self.quantity):
             consumed_item = self._storage.pop()
@@ -32,28 +39,33 @@ class PipelineInput:
 
 
 class PipelineOutput:
-    __slots__ = ['quantity', 'storage', 'resource']
+    __slots__ = ('quantity', 'storage', 'resource')
 
-    def __init__(self, quantity, resource, storage):
+    def __init__(
+        self, quantity: int, resource: Type[Resource], storage: ResourceStorage
+    ):
         self.resource = resource
         self.storage = storage
         self.quantity = quantity
 
 
 class Pipeline:
-    __slots__ = [
+    __slots__ = (
         'inputs', 'output',
         'reserved', 'ticks_per_cycle',
         '__weakref__'
-    ]
+    )
 
-    def __init__(self, inputs, output, ticks_per_cycle):
+    def __init__(
+        self, inputs: List[PipelineInput], output: PipelineOutput,
+        ticks_per_cycle: int
+    ):
         self.inputs = inputs
         self.output = output
         self.reserved = False
         self.ticks_per_cycle = ticks_per_cycle
 
-    def consume_input(self):
+    def consume_input(self) -> bool:
         for input in self.inputs:
             if not input.can_consume():
                 return False
@@ -61,8 +73,10 @@ class Pipeline:
         for input in self.inputs:
             input.consume()
 
-    def build_outputs(self):
-        outputs = []
+        return True
+
+    def build_outputs(self) -> List[Resource]:
+        outputs: List[Resource] = []
 
         for _ in range(self.output.quantity):
             output = self.output.resource()
@@ -74,7 +88,7 @@ class Pipeline:
 
         return outputs
 
-    def is_available(self):
+    def is_available(self) -> bool:
         if self.reserved:
             return False
 
@@ -89,27 +103,27 @@ class Pipeline:
 
 
 class FactoryWorker(_Worker):
-    _target_components = set([])
+    _target_components = []
 
     @classmethod
-    def target_components(cls):
+    def target_components(cls) -> list:
         if not cls._target_components:
-            cls._target_components.add(Factory)
+            cls._target_components.append(Factory)
         return cls._target_components
 
 
 class Factory(Component):
-    __slots__ = [
+    __slots__ = (
         'active', 'cycles', 'max_workers', 'pipelines', 'state', 'ticks',
         'workers'
-    ]
+    )
 
     exposed_as = 'factory'
-    exposed_methods = [
+    exposed_methods = (
         'add_worker', 'can_add_worker', 'remote_worker', 'start', 'stop'
-    ]
+    )
 
-    def __init__(self, owner, pipelines: list, max_workers: int):
+    def __init__(self, owner, pipelines: List[Pipeline], max_workers: int):
         super().__init__(owner)
 
         self.active: bool = False
@@ -142,7 +156,7 @@ class Factory(Component):
     def position(self):
         return self.owner.position
 
-    def remove_worker(self, worker):
+    def remove_worker(self, worker) -> bool:
         for reference in self.workers:
             resolved_reference = reference()
             if not resolved_reference:
@@ -160,10 +174,10 @@ class Factory(Component):
                 return True
         return False
 
-    def start(self):
+    def start(self) -> None:
         self.active = True
 
-    def state_change(self, new_state):
+    def state_change(self, new_state: str) -> None:
         if self.state == new_state:
             return
 
@@ -177,10 +191,10 @@ class Factory(Component):
 
         self.state = new_state
 
-    def stop(self):
+    def stop(self) -> None:
         self.active = False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{owner}#{component} {id}>".format(
             owner=self.owner,
             component=self.__class__.__name__,
@@ -191,7 +205,7 @@ class Factory(Component):
 class FactorySystem:
     component_types = [Factory]
 
-    def process(self, factories):
+    def process(self, factories: List[Factory]) -> None:
         for factory in factories:
             if not factory.active:
                 continue
@@ -207,9 +221,9 @@ class FactorySystem:
                 self.process_workers(factory)
                 continue
 
-    def process_workers(self, factory):
+    def process_workers(self, factory: Factory) -> None:
         for worker_reference in factory.workers:
-            worker = worker_reference()
+            worker: weakref.ReferenceType = worker_reference()
 
             if not worker:
                 self.workers.remove(worker_reference)
@@ -238,7 +252,7 @@ class FactorySystem:
                 if not worker.pipeline:
                     continue
 
-            pipeline = worker.pipeline()
+            pipeline: Pipeline = worker.pipeline()
             if worker.progress >= pipeline.ticks_per_cycle:
 
                 outputs = pipeline.build_outputs()
@@ -261,8 +275,8 @@ class FactorySystem:
             else:
                 worker.progress += 1
 
-    def activate_pipeline_on_worker(self, factory, worker):
-        pipeline = self.available_pipeline_for_factory(factory)
+    def activate_pipeline_on_worker(self, factory: Factory, worker) -> bool:
+        pipeline: Pipeline = self.available_pipeline_for_factory(factory)
 
         if not pipeline:
             return False
@@ -283,7 +297,7 @@ class FactorySystem:
 
         return True
 
-    def available_pipeline_for_factory(self, factory):
+    def available_pipeline_for_factory(self, factory: Factory) -> Pipeline:
         for pipeline in factory.pipelines:
             if not pipeline.is_available():
                 continue

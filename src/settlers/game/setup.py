@@ -1,10 +1,10 @@
 import random
 
 from settlers.engine.components.construction import (
-    Construction, ConstructionSpec, ConstructionSystem
+    ConstructionSystem
 )
 from settlers.engine.components.factory import (
-    FactorySystem, Factory, Pipeline, PipelineInput, PipelineOutput
+    FactorySystem
 )
 from settlers.engine.components.generative import (
     GenerativeSystem
@@ -16,18 +16,17 @@ from settlers.engine.components.movement import (
     ResourceTransportSystem, TravelSystem
 )
 from settlers.engine.entities.position import Position
-from settlers.entities.buildings import Building
+from settlers.entities.resources.stone import (
+    StoneQuarry
+)
+from settlers.entities.resources.tree import (
+    Tree
+)
 from settlers.entities.characters.components.villager_ai_system import (
     VillagerAiSystem
 )
 from settlers.entities.characters.villager import Villager
-from settlers.entities.resources.stone import (
-    StoneQuarry, StoneSlab, Stone
-)
-from settlers.entities.resources.tree import (
-    Tree, TreeLog, Lumber
-)
-from settlers.engine.entities.resources.resource_storage import ResourceStorage
+import settlers.game.entity_templates as entity_templates
 
 
 def setup(world):
@@ -62,129 +61,24 @@ def setup(world):
         v.components.add(
             (Position, random.randrange(0, 800), random.randrange(0, 600))
         )
-
         world.add_entity(v)
+
     del(v)
 
-    world.add_entity(build_sawmill('Bob'))
-    world.add_entity(build_stone_workshop_construction_site('Joseph'))
-
-
-def build_sawmill(name):
-    sawmill_storages = {
-        TreeLog: ResourceStorage(True, False, 10),
-        Lumber: ResourceStorage(False, True, 50),
-    }
-
-    sawmill_storages[TreeLog].add(TreeLog())
-    sawmill_pipelines = [
-        Pipeline(
+    world.add_entity(
+        entity_templates.buildings.build_sawmill(
+            'Bob',
             [
-                PipelineInput(1, TreeLog, sawmill_storages[TreeLog])
-            ],
-            PipelineOutput(5, Lumber, sawmill_storages[Lumber]),
-            2
+                (Position, random.randrange(0, 800), random.randrange(0, 600)),
+            ]
         )
-    ]
-
-    sawmill = Building(
-        "{name}'s Sawmill".format(name=name),
-        sawmill_storages
     )
 
-    sawmill.components.add(
-        (Position, random.randrange(0, 800), random.randrange(0, 600))
-    )
-
-    sawmill.components.add((Factory, sawmill_pipelines, 1))
-
-    return sawmill
-
-
-def build_construction_site(spec):
-    storages = {}
-
-    for resource, quantity in spec.construction_resources.items():
-        storages[resource] = ResourceStorage(True, False, quantity)
-
-    construction_site = Building(
-        spec.name,
-        storages,
-    )
-
-    construction_site.components.add(
-        (Position, random.randrange(0, 800), random.randrange(0, 600))
-    )
-
-    construction_site.components.add(
-        (Construction, spec)
-    )
-
-    return construction_site
-
-
-def build_stone_workshop_construction_site(name):
-    workshop_storages = {
-        StoneSlab: ResourceStorage(True, False, 5),
-        Stone: ResourceStorage(False, True, 30),
-    }
-
-    workshop_pipelines = [
-        Pipeline(
+    world.add_entity(
+        entity_templates.buildings.build_stone_workshop_construction_site(
+            'Joseph',
             [
-                PipelineInput(1, StoneSlab, workshop_storages[StoneSlab])
-            ],
-            PipelineOutput(10, Stone, workshop_storages[Stone]),
-            5
+                (Position, random.randrange(0, 800), random.randrange(0, 600)),
+            ]
         )
-    ]
-
-    spec = ConstructionSpec(
-        [
-            (Factory, workshop_pipelines, 2)
-        ],
-        [],
-        {
-            Lumber: 10
-        },
-        4,
-        1,
-        "{name}'s stone workshop".format(name=name),
-        workshop_storages
     )
-
-    return build_construction_site(spec)
-
-
-def build_sawmill_construction_site(name):
-    sawmill_storages = {
-        TreeLog: ResourceStorage(True, False, 10),
-        Lumber: ResourceStorage(False, True, 50),
-    }
-
-    sawmill_pipelines = [
-        Pipeline(
-            [
-                PipelineInput(1, TreeLog, sawmill_storages[TreeLog])
-            ],
-            PipelineOutput(5, Lumber, sawmill_storages[Lumber]),
-            2
-        )
-    ]
-
-    spec = ConstructionSpec(
-        [
-            (Factory, sawmill_pipelines, 1)
-        ],
-        [
-        ],
-        {
-            Lumber: 10,
-        },
-        4,
-        1,
-        "{name}'s Sawmill".format(name=name),
-        sawmill_storages
-    )
-
-    return build_construction_site(spec)

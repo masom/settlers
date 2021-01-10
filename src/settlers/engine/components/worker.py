@@ -1,4 +1,5 @@
 import structlog
+from typing import Callable, List, Optional
 import weakref
 
 from . import Component
@@ -23,8 +24,8 @@ class Worker(Component):
         self.state: str = STATE_IDLE
         self.pipeline = None
         self.progress: int = 0
-        self.workplace = None
-        self._on_end_callbacks: list = []
+        self.workplace: Optional[weakref.ReferenceType] = None
+        self._on_end_callbacks: List[Callable] = []
 
     def can_work(self) -> bool:
         if not self.workplace:
@@ -42,7 +43,7 @@ class Worker(Component):
 
         return self.state == STATE_ACTIVE
 
-    def on_end(self, callback: callable) -> None:
+    def on_end(self, callback: Callable) -> None:
         self._on_end_callbacks.append(callback)
 
     def start(self, target: Component) -> bool:
