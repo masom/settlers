@@ -1,5 +1,5 @@
 import structlog
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Dict, List, Tuple, Type
 import weakref
 from settlers.engine.entities.entity import Entity
 from settlers.engine.entities.resources import Resource
