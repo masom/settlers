@@ -1,6 +1,6 @@
 from collections import defaultdict
 import structlog
-from typing import List
+from typing import List, Union
 
 logger = structlog.get_logger('components')
 
@@ -244,3 +244,6 @@ class ComponentManager(metaclass=ComponentManagerMeta):
                 continue
             entities.append((entity, entity_components))
         return entities
+
+
+ComponentsType = Union[List[Component], List[tuple]]

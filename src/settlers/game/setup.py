@@ -22,11 +22,16 @@ from settlers.entities.resources.stone import (
 from settlers.entities.resources.tree import (
     Tree
 )
+from settlers.entities.buildings.sawmill import (
+    build_sawmill
+)
+from settlers.entities.buildings.stone_workshop import (
+    build_stone_workshop_construction_site
+)
 from settlers.entities.characters.components.villager_ai_system import (
     VillagerAiSystem
 )
 from settlers.entities.characters.villager import Villager
-import settlers.game.entity_templates as entity_templates
 
 
 def setup(world):
@@ -66,19 +71,18 @@ def setup(world):
     del(v)
 
     world.add_entity(
-        entity_templates.buildings.build_sawmill(
+        build_sawmill(
             'Bob',
             [
-                (Position, random.randrange(0, 800), random.randrange(0, 600)),
+                (Position, random.randrange(0, 800), random.randrange(0, 600))
             ]
         )
     )
 
     world.add_entity(
-        entity_templates.buildings.build_stone_workshop_construction_site(
+        build_stone_workshop_construction_site(
             'Joseph',
-            [
-                (Position, random.randrange(0, 800), random.randrange(0, 600)),
-            ]
+            [],
+            (Position, random.randrange(0, 800), random.randrange(0, 600))
         )
     )

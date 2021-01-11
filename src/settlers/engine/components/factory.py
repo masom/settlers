@@ -1,9 +1,9 @@
 import structlog
 import weakref
-from typing import List, Tuple, Type
+from typing import List, Optional, Type
 
 from settlers.engine.components import Component
-from settlers.engine.components.worker import Worker as _Worker
+from settlers.engine.components.worker import Worker
 from settlers.engine.entities.resources import Resource
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
 
@@ -31,7 +31,7 @@ class PipelineInput:
     def consume(self) -> int:
         consumed = 0
         for quantity in range(self.quantity):
-            consumed_item = self._storage.pop()
+            consumed_item: Optional[Type[Resource]] = self._storage.pop()
             if consumed_item:
                 consumed += 1
 
@@ -79,8 +79,8 @@ class Pipeline:
         outputs: List[Resource] = []
 
         for _ in range(self.output.quantity):
-            output = self.output.resource()
-            added = self.output.storage.add(output)
+            output: Type[Resource] = self.output.resource()
+            added: bool = self.output.storage.add(output)
             if added:
                 outputs.append(output)
             else:
@@ -102,7 +102,7 @@ class Pipeline:
         return True
 
 
-class FactoryWorker(_Worker):
+class FactoryWorker(Worker):
     _target_components = []
 
     @classmethod
@@ -130,9 +130,9 @@ class Factory(Component):
         self.max_workers: int = max_workers
         self.pipelines: list = pipelines
         self.state: str = STATE_IDLE
-        self.workers: list = []
+        self.workers: List[weakref.ReferenceType[Worker]] = []
 
-    def add_worker(self, worker) -> bool:
+    def add_worker(self, worker: Worker) -> bool:
         if not self.can_add_worker():
             return False
 
@@ -156,9 +156,9 @@ class Factory(Component):
     def position(self):
         return self.owner.position
 
-    def remove_worker(self, worker) -> bool:
+    def remove_worker(self, worker: Worker) -> bool:
         for reference in self.workers:
-            resolved_reference = reference()
+            resolved_reference: Optional[Worker] = reference()
             if not resolved_reference:
                 self.workers.remove(reference)
                 continue
@@ -223,7 +223,7 @@ class FactorySystem:
 
     def process_workers(self, factory: Factory) -> None:
         for worker_reference in factory.workers:
-            worker: weakref.ReferenceType = worker_reference()
+            worker: Optional[Worker] = worker_reference()
 
             if not worker:
                 self.workers.remove(worker_reference)
@@ -249,13 +249,17 @@ class FactorySystem:
 
             if not worker.is_active():
                 self.activate_pipeline_on_worker(factory, worker)
-                if not worker.pipeline:
-                    continue
 
-            pipeline: Pipeline = worker.pipeline()
+            if not worker.pipeline:
+                continue
+
+            pipeline: Optional[Pipeline] = worker.pipeline()
+            if not pipeline:
+                worker.pipeline = None
+                continue
+
             if worker.progress >= pipeline.ticks_per_cycle:
-
-                outputs = pipeline.build_outputs()
+                outputs: List[Resource] = pipeline.build_outputs()
 
                 logger.debug(
                     'process_workers_work_completed',
@@ -276,7 +280,9 @@ class FactorySystem:
                 worker.progress += 1
 
     def activate_pipeline_on_worker(self, factory: Factory, worker) -> bool:
-        pipeline: Pipeline = self.available_pipeline_for_factory(factory)
+        pipeline: Optional[Pipeline] = self.available_pipeline_for_factory(
+            factory
+        )
 
         if not pipeline:
             return False
@@ -297,7 +303,9 @@ class FactorySystem:
 
         return True
 
-    def available_pipeline_for_factory(self, factory: Factory) -> Pipeline:
+    def available_pipeline_for_factory(
+        self, factory: Factory
+    ) -> Optional[Pipeline]:
         for pipeline in factory.pipelines:
             if not pipeline.is_available():
                 continue
