@@ -1,8 +1,10 @@
 import random
 import structlog
-from typing import List
+from typing import Callable, List
 
-from settlers.engine.components import Component, ComponentManager
+from settlers.engine.components import (
+    Component, ComponentProxy, ComponentManager
+)
 from settlers.engine.components.construction import (
     Construction, ConstructionWorker
 )
@@ -38,7 +40,7 @@ class VillagerAi(Component):
         self.task = None
         self._available_tasks = []
 
-    def available_tasks(self, supported_tasks):
+    def available_tasks(self, supported_tasks: list):
         if self._available_tasks:
             return self._available_tasks
 
@@ -79,7 +81,7 @@ class VillagerAiSystem:
     component_types = [VillagerAi]
 
     def __init__(self, world: object) -> None:
-        self.tasks = [
+        self.tasks: List[Component] = [
             Harvester,
             ConstructionWorker,
             FactoryWorker,
@@ -88,7 +90,7 @@ class VillagerAiSystem:
         self.entities = world.entities
 
     def handle_busy_harvester(self, villager: VillagerAi) -> None:
-        proxy = getattr(villager.owner, Harvester.exposed_as)
+        proxy: ComponentProxy = getattr(villager.owner, Harvester.exposed_as)
         harvester: Harvester = proxy.reveal(Harvester)
 
         if not harvester.state == HARVESTER_STATE_FULL:
@@ -130,8 +132,10 @@ class VillagerAiSystem:
             import pdb; pdb.set_trace()
             return
 
-        options = [self.resource_transport_for_villager]
-        task = random.choice(options)
+        options: List[Callable] = [
+            self.resource_transport_for_villager
+        ]
+        task: Callable = random.choice(options)
         task(villager)
 
     def resource_transport_for_villager(self, villager: VillagerAi) -> None:
@@ -249,21 +253,24 @@ class VillagerAiSystem:
                 )
                 self.handle_idle_villager(villager)
 
-    def select_task(self, villager: VillagerAi):
-        available_tasks: list = villager.available_tasks(self.tasks)
+    def select_task(self, villager: VillagerAi) -> Callable:
+        available_tasks: List[Callable] = villager.available_tasks(self.tasks)
 
         if not available_tasks:
             return None
 
         return random.choice(available_tasks)
 
-    def target_for_task(self, task):
-        target_components = task.target_components()
+    def target_for_task(self, task: Callable):
+        target_components: List[Component] = task.target_components()
 
         if not target_components:
             return None
 
-        entities: list = ComponentManager.entities_matching(target_components)
+        entities: List[tuple] = ComponentManager.entities_matching(
+            target_components
+        )
+
         for entity, components in entities:
             targets = list(components)
             random.shuffle(targets)
