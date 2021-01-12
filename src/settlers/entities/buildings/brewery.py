@@ -64,7 +64,8 @@ def brewery_pipelines(storages: StoragesType) -> List[Pipeline]:
 
 
 def build_brewery_construction_site(
-    name: str, components: List[Component],
+    name: str,
+    components: List[Component],
     position: Position
 ) -> Building:
     storages = brewery_storages()

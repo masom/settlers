@@ -16,6 +16,16 @@ from settlers.engine.components.movement import (
     ResourceTransportSystem, TravelSystem
 )
 from settlers.engine.entities.position import Position
+from settlers.engine.components.movement import (
+    ResourceTransport
+)
+from settlers.engine.components.construction import (
+    ConstructionWorker
+)
+from settlers.engine.components.factory import (
+    FactoryWorker
+)
+from settlers.engine.components.harvesting import Harvester
 from settlers.entities.resources.stone import (
     StoneQuarry
 )
@@ -66,6 +76,17 @@ def setup(world):
         v.components.add(
             (Position, random.randrange(0, 800), random.randrange(0, 600))
         )
+        role = random.choice(
+            [
+                (Harvester, [], v.storages),
+                (ConstructionWorker, []),
+                FactoryWorker,
+                ResourceTransport,
+            ]
+        )
+
+        v.components.add(role)
+
         world.add_entity(v)
 
     del(v)

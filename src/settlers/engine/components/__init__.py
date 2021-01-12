@@ -1,6 +1,6 @@
 from collections import defaultdict
 import structlog
-from typing import List, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 logger = structlog.get_logger('components')
 
@@ -8,13 +8,13 @@ logger = structlog.get_logger('components')
 class Components:
     __slots__ = ['components', 'component_classes', 'owner']
 
-    def __init__(self, owner):
+    def __init__(self, owner: object):
         self.owner = owner
-        self.components = []
-        self.component_classes = set([])
+        self.components: List[tuple] = []
+        self.component_classes: Set[Component] = set()
 
     def initialize(self):
-        parents = [self.owner.__class__]
+        parents: List[Type[object]] = [self.owner.__class__]
         parents.extend(self._find_parents(self.owner.__class__))
 
         for klass in parents:
@@ -24,8 +24,8 @@ class Components:
             for component_definition in klass.components:
                 self.add(component_definition)
 
-    def _find_parents(self, klass):
-        parents = []
+    def _find_parents(self, klass: type) -> List[type]:
+        parents: List[type] = []
 
         for parent in klass.__bases__:
             if parent == object:
@@ -35,25 +35,24 @@ class Components:
 
         return parents
 
-    def add(self, component_definition):
+    def add(self, component_definition: tuple) -> None:
         logger.debug(
             "add",
             owner=self.owner,
             component=component_definition,
         )
 
-        component_instance = None
+        component_instance: Optional[Component] = None
 
         if isinstance(component_definition, Component):
             component_instance = component_definition
         else:
-            component_class = None
+            component_class: Optional[Type[Component]] = None
             arguments = []
 
             if type(component_definition) is tuple:
-                params = list(component_definition)
-                component_class = params.pop(0)
-                arguments = params
+                component_class = component_definition[0]
+                arguments = component_definition[1:]
             elif issubclass(component_definition, Component):
                 component_class = component_definition
             else:
@@ -64,7 +63,10 @@ class Components:
                     )
                 )
 
-            component_instance = component_class(self.owner, *arguments)
+            component_instance: Component = component_class(
+                self.owner,
+                *arguments
+            )
 
         self.component_classes.add(component_instance.__class__)
 
@@ -77,10 +79,10 @@ class Components:
         if hasattr(component_instance, 'exposed_as'):
             multiple = False
             if hasattr(component_instance, 'expose_multiple'):
-                multiple = getattr(component_instance, 'expose_multiple')
+                multiple = bool(getattr(component_instance, 'expose_multiple'))
 
-            exposed_as = component_instance.exposed_as
-            exposed_as_defined = hasattr(self.owner, exposed_as)
+            exposed_as: str = component_instance.exposed_as
+            exposed_as_defined: bool = hasattr(self.owner, exposed_as)
 
             if not multiple and exposed_as_defined:
                 raise RuntimeError(
@@ -136,7 +138,7 @@ class ComponentProxy:
         will be returned
     :return: The proxied component
     '''
-    def reveal(self, expected_type=None):
+    def reveal(self, expected_type: type = None) -> object:
         if expected_type:
             assert isinstance(self._component, expected_type), \
                 "{component} should be {expected_type}, got {type}".format(
@@ -144,10 +146,9 @@ class ComponentProxy:
                     expected_type=expected_type,
                     type=self._component.__class__
                 )
-            
         return self._component
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str):
         if attr in self._exposed_methods:
             return getattr(self._component, attr)
         else:
@@ -171,7 +172,7 @@ class ComponentProxy:
 
         return self._component == other._component
 
-    def __hasattr__(self, attr):
+    def __hasattr__(self, attr: str) -> bool:
         return attr in self._exposed_methods
 
     def __repr__(self):
@@ -186,17 +187,17 @@ STATE_IDLE = 'idle'
 
 
 class Component:
-    __slots__ = ['_on_end_callbacks', 'owner', 'state', '__weakref__']
+    __slots__ = ('_on_end_callbacks', 'owner', 'state', '__weakref__')
 
     def __init__(self, owner):
-        self._on_end_callbacks = []
+        self._on_end_callbacks: List[Callable] = []
         self.owner = owner
         self.state = STATE_IDLE
 
-    def on_end(self, callback):
+    def on_end(self, callback: Callable) -> None:
         self._on_end_callbacks.append(callback)
 
-    def state_change(self, new_state):
+    def state_change(self, new_state: str) -> None:
         if self.state == new_state:
             return
 
@@ -210,7 +211,7 @@ class Component:
 
         self.state = new_state
 
-    def stop(self):
+    def stop(self) -> None:
         self.state_change(STATE_IDLE)
 
         for callback in self._on_end_callbacks:
@@ -219,24 +220,34 @@ class Component:
         self._on_end_callbacks = []
 
 
+ComponentsType = Dict[Type[Component], List[Component]]
+
+
 class ComponentManagerMeta(type):
-    _components: dict = defaultdict(list)
+    _components: ComponentsType = defaultdict(list)
 
     def __getitem__(self, component_class: type) -> list:
         return self._components[component_class]
 
 
 class ComponentManager(metaclass=ComponentManagerMeta):
-    _components: dict = defaultdict(list)
+    _components: ComponentsType = defaultdict(list)
+    _entities: Dict[int, List[Component]] = defaultdict(list)
 
     @classmethod
-    def entities_matching(self, selection: List[type]) -> list:
-        entities = []
+    def entity(
+        cls, identifier: int
+    ) -> Optional[Tuple[object, List[Component]]]:
+        return cls._entities[identifier]
+
+    @classmethod
+    def entities_matching(cls, selection: List[type]) -> list:
+        entities: List[Tuple[object, List[Component]]] = []
         len_selection = len(selection)
-        components = defaultdict(list)
+        components: Dict[object, List[Component]] = defaultdict(list)
 
         for component_class in selection:
-            for component in self._components[component_class]:
+            for component in cls._components[component_class]:
                 components[component.owner].append(component)
 
         for entity, entity_components in components.items():

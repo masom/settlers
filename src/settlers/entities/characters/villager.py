@@ -1,25 +1,19 @@
+from collections import defaultdict
 import names
+from typing import Optional
 
 from settlers.engine.entities.entity import Entity
-from settlers.engine.components.construction import (
-    ConstructionWorker
-)
-from settlers.engine.components.factory import (
-    FactoryWorker
-)
-from settlers.engine.components.harvesting import Harvester
 from settlers.engine.components.movement import (
-    ResourceTransport, Travel, Velocity
+    Travel, Velocity
 )
-from settlers.engine.entities.resources.resource_storage import ResourceStorage
+from settlers.engine.entities.resources.resource_storage import (
+    ResourceStorage, ResourceStoragesType
+)
 
 from settlers.entities.characters.components.villager_ai_system import (
     VillagerAi
 )
 from settlers.entities.renderable import Renderable
-from settlers.entities.resources.tree import (
-    Lumber, TreeLog
-)
 
 
 class Villager(Entity):
@@ -29,36 +23,22 @@ class Villager(Entity):
         VillagerAi,
         Travel,
         (Velocity, 2),
-        FactoryWorker,
-        ResourceTransport,
+        (Renderable, 'villager', 2)
     ]
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: Optional[str] = None):
         super().__init__()
 
         if not name:
             name = names.get_full_name()
 
-        self.storages = {
-            TreeLog: ResourceStorage(True, True, 1),
-            Lumber: ResourceStorage(True, True, 5),
-        }
-
+        self.storages: ResourceStoragesType = defaultdict(
+            self._resource_storage_factory
+        )
         self.name = name
 
-    def initialize(self) -> None:
-        self.components.add(
-            (Harvester, [TreeLog], self.storages[TreeLog]),
-        )
-        self.components.add(
-            (ConstructionWorker, [])
-        )
-
-        self.components.add(
-            (Renderable, 'villager', 2)
-        )
-
-        super().initialize()
+    def _resource_storage_factory(self) -> ResourceStorage:
+        return ResourceStorage(True, True, 1)
 
     def __repr__(self) -> str:
         return "<{klass} {name} {id}>".format(

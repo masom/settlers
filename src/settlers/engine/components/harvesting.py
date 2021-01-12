@@ -1,5 +1,5 @@
 import structlog
-from typing import Callable, List, Optional, Type
+from typing import Callable, List, Optional, Set, Type
 import weakref
 
 from . import Component
@@ -42,7 +42,7 @@ class Harvester(Component):
         self.destination: Optional[weakref.ReferenceType] = None
         self.on_end_callbacks: List[Callable] = []
         self.state = STATE_IDLE
-        self.resources = set(resources)
+        self.resources: Set[Resource] = set(resources)
         self.storage = storage
         self.source = None
         self.ticks = 0
