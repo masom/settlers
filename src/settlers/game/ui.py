@@ -52,7 +52,7 @@ class RenderSystem:
         return self.sprite_factory.from_image(str(path))
 
     def process(self, renderables: list):
-        z_sprites = [
+        z_sprites: list[list] = [
             [],
             [],
             [],
@@ -69,6 +69,7 @@ class RenderSystem:
                 ):
                     t = 'construction'
 
+                # HERE BE MISTAKE WITH CONSTRUCTION?
                 sprite_path = random.choice(self.sprites[t])
                 renderable.sprite = self.load_sprite(sprite_path)
 
@@ -85,6 +86,7 @@ class RenderSystem:
 class Manager:
     def __init__(self):
         sdl2.ext.init()
+
 
         sdl2.SDL_SetHint(sdl2.SDL_HINT_RENDER_SCALE_QUALITY, b"1")
 
@@ -162,7 +164,7 @@ class Manager:
                 if event.type == sdl2.SDL_QUIT:
                     return
 
-            world.process()
+            world.process(start)
 
             renderables = list(tiles)
             renderables.extend(world.components_matching(

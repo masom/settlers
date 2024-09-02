@@ -110,6 +110,9 @@ class Components:
             if multiple:
                 components = getattr(self.owner, exposed_as)
                 components.remove(component)
+
+                if not components:
+                    delattr(self.owner, exposed_as)
             else:
                 delattr(self.owner, exposed_as)
 

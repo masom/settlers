@@ -35,7 +35,7 @@ class ResourceStorage:
         return len(self._storage) == 0
 
     def is_full(self) -> bool:
-        return len(self._storage) == self.capacity
+        return len(self._storage) >= self.capacity
 
     def quantity(self) -> int:
         return len(self._storage)

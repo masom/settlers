@@ -37,6 +37,7 @@ class InventoryRouting(Component):
         ])
 
         common: Optional[set] = None
+
         if requested_resources:
             requested_resource_keys = set(requested_resources)
             common = requested_resource_keys.intersection(building_resources)
@@ -50,6 +51,7 @@ class InventoryRouting(Component):
             transportable = building_resources
 
         available: Dict[Type[Resource], bool] = {}
+
         for resource in transportable:
             storage = storages[resource]
             if storage.allows_outgoing:
@@ -60,7 +62,8 @@ class InventoryRouting(Component):
         for item in transportable:
             if available[item]:
                 return item
-
+        return None
+    
     def can_receive_resources(self) -> bool:
         if len(self.owner.storages) == 0:
             return False
@@ -74,7 +77,7 @@ class InventoryRouting(Component):
 
     def receive_resource(self, resource: Type[Resource]) -> bool:
         storage: Optional[ResourceStorage] = self.owner.storages[
-            resource.__class__
+            resource
         ]
 
         if storage is None:
@@ -92,9 +95,11 @@ class InventoryRouting(Component):
         self, resource: Type[Resource]
     ) -> Optional[ResourceStorage]:
         for stored_resource, storage in self.owner.storages.items():
-            if stored_resource == resource.__class__:
+            if stored_resource == resource:
                 return storage
 
+        return None
+    
     def remove_inventory(
         self, item: Type[Resource]
     ) -> Optional[Type[Resource]]:

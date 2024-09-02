@@ -1,4 +1,5 @@
 import random
+from collections import defaultdict
 
 from settlers.engine.components.construction import (
     ConstructionSystem
@@ -55,7 +56,7 @@ def setup(world):
     world.add_system(ResourceTransportSystem())
     world.add_system(ConstructionSystem())
 
-    for _ in range(5):
+    for _ in range(1):
         t = Tree(1, 1)
         t.components.add(
             (Position, random.randrange(0, 800), random.randrange(0, 600))
@@ -63,33 +64,41 @@ def setup(world):
         world.add_entity(t)
     del(t)
 
-    for _ in range(2):
+    for _ in range(1):
         q = StoneQuarry(25)
         q.components.add(
             (Position, random.randrange(0, 800), random.randrange(0, 600))
         )
         world.add_entity(q)
     del(q)
+    
+    workforce_plan = {
+        Harvester: 3,
+        ConstructionWorker: 1,
+        FactoryWorker: 2,
+        ResourceTransport: 2,
+    }
 
-    for _ in range(10):
-        v = Villager()
-        v.components.add(
-            (Position, random.randrange(0, 800), random.randrange(0, 600))
-        )
-        role = random.choice(
-            [
-                (Harvester, [], v.storages),
-                (ConstructionWorker, []),
-                FactoryWorker,
-                ResourceTransport,
-            ]
-        )
+    for task, count in workforce_plan.items():
+        for _ in range(count):
+            v = Villager()
 
-        v.components.add(role)
+            v.components.add(
+                (Position, random.randrange(0, 800), random.randrange(0, 600))
+            )
 
-        world.add_entity(v)
+            if task == Harvester:
+                task_info = (task, [], v.storages)
+            elif task == ConstructionWorker:
+                task_info = (task, [])
+            else:
+                task_info = task
 
-    del(v)
+            v.components.add(task_info)
+
+            world.add_entity(v)
+        del(v)
+
 
     world.add_entity(
         build_sawmill(
@@ -100,6 +109,7 @@ def setup(world):
         )
     )
 
+
     world.add_entity(
         build_stone_workshop_construction_site(
             'Joseph',
@@ -107,3 +117,4 @@ def setup(world):
             (Position, random.randrange(0, 800), random.randrange(0, 600))
         )
     )
+
