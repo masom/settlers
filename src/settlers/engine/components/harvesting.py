@@ -20,6 +20,7 @@ class Harvester(Component):
     __slots__ = (
         'destination',
         'on_end_callbacks',
+        '_resources',
         'resources',
         'state',
         'storage',
@@ -32,30 +33,48 @@ class Harvester(Component):
         'assign_destination', 'can_harvest', 'on_end', 'start', 'stop'
     )
 
-    _target_components = []
+    _target_components: List[Type[Component]] = []
 
     def __init__(
-        self, owner, resources: List[Type[Resource]], storage: ResourceStorage
+        self, owner, resources: List[Type[Resource]], storage: dict[Type[Resource], ResourceStorage]
     ):
         super().__init__(owner)
 
         self.destination: Optional[weakref.ReferenceType] = None
         self.on_end_callbacks: List[Callable] = []
         self.state = STATE_IDLE
-        self.resources: Set[Resource] = set(resources)
+        self._resources: Set[Resource] = set(resources)
         self.storage = storage
         self.source = None
         self.ticks = 0
 
+        self.update_resources()
+
     def assign_destination(self, building) -> None:
         self.destination = weakref.ref(building)
 
+    def update_resources(self) -> None:
+        if self._resources:
+            self.resources = self._resources
+        else:
+            self.resources = set(self.storage.keys())
+
+    '''
+    Determines if a worker can harvest a given resource by looking at the resource storage state
+    '''
     def can_harvest(self, resource: Type[Resource]) -> bool:
-        if resource not in self.resources:
+        if len(self._resources) > 0 and not resource in self._resources:
+            logger.debug(
+                'cannot_harvest',
+                component=self.__class__.__name__,
+                owner=self.owner,
+                resource=resource,
+            )
             return False
 
-        if self.storage.is_full():
+        if self.storage[resource].is_full():
             return False
+
         return True
 
     def deliver(self) -> None:
@@ -66,25 +85,28 @@ class Harvester(Component):
 
         destination = self.destination()
 
+        if not destination:
+            raise RuntimeError('destination is dead')
+
         if not destination.position == self.owner.position:
             raise RuntimeError('not yet at destination')
 
         delivered: List[Resource] = []
         kept: List[Resource] = []
 
-        for resource in self.storage:
+        for resource_type, output_storage in self.storage.items():
             input_storage: ResourceStorage = destination.inventory.storage_for(
-                resource
+                resource_type
             )
 
             if not input_storage:
                 continue
 
-            if input_storage.add(resource):
-                delivered.append(resource)
-                self.storage.remove(resource)
+            if input_storage.add(resource_type):
+                delivered.append(resource_type)
+                output_storage.pop()
             else:
-                kept.append(resource)
+                kept.append(resource_type)
                 logger.info(
                     'cannot deliver',
                     component=self.__class__.__name__,
@@ -102,7 +124,7 @@ class Harvester(Component):
         )
 
     def inventory_available_for(self, resource: type) -> bool:
-        return self.storage.available()
+        return self.storage[resource].available()
 
     def on_end(self, callback: Callable) -> None:
         self.on_end_callbacks.append(callback)
@@ -114,11 +136,14 @@ class Harvester(Component):
         collected = 0
 
         for resource in harvest:
-            added: bool = self.storage.add(resource)
+            added: bool = self.storage[resource].add(resource)
             if added:
                 collected += 1
             else:
                 raise RuntimeError('full...')
+
+        if not self._resources:
+            self.update_resources()
 
         logger.info(
             'receive_harvest',
@@ -296,7 +321,11 @@ class Harvestable(Component):
 class HarvesterSystem:
     component_types = [Harvester]
 
-    def process(self, workers: List[Harvester]) -> None:
+    def __init__(self) -> None:
+        self._awaiting_until: dict[Harvester, int] = {}
+
+    def process(self, tick: int, workers: List[Harvester]) -> None:
+        self._current_tick = tick
         for worker in workers:
             if worker.state == STATE_IDLE:
                 if not worker.source:
@@ -316,13 +345,18 @@ class HarvesterSystem:
                 self.handle_delivery(worker)
 
     def handle_delivery(self, worker: Harvester) -> None:
+        awaiting = self._awaiting_until.get(worker, 0)
+        if awaiting > self._current_tick:
+            return
+
         if not worker.destination:
             logger.debug(
-                'handle_delivery_no_destination',
+                'handle_delivery:no_destination',
                 system=self.__class__.__name__,
                 source=worker.source,
                 worker=worker,
             )
+            self._awaiting_until[worker] = self._current_tick + 1000
             return
 
         destination = worker.destination()
@@ -345,18 +379,19 @@ class HarvesterSystem:
             return
 
     def handle_harvesting(self, worker: Harvester):
-        if worker.storage.is_full():
-            worker.state_change(STATE_FULL)
-            return
-
         if not worker.source:
+            logger.debug(
+                'handle_harvesting:no_source',
+                system=self.__class__.__name__,
+                worker=worker,
+            )
             worker.stop()
             return
 
         source = worker.source()
         if not source:
             logger.debug(
-                'handle_harvesting source dead',
+                'handle_harvesting:source_dead',
                 system=self.__class__.__name__,
                 source=worker.source,
                 worker=worker,
@@ -365,8 +400,13 @@ class HarvesterSystem:
             worker.state_change(STATE_IDLE)
             return
 
-        resource = source.output
+        resource: Type[Resource] = source.output
 
+        # 
+        if worker.storage[resource].is_full():
+            worker.state_change(STATE_FULL)
+            return
+        
         if not worker.position() == source.position():
             travel = worker.owner.travel
             destination = travel.destination
@@ -378,7 +418,7 @@ class HarvesterSystem:
                     raise RuntimeError('we got a problem')
 
             logger.debug(
-                'handle_harvesting_location_difference',
+                'handle_harvesting:location_difference',
                 system=self.__class__.__name__,
                 source=source,
                 worker=worker,
@@ -393,7 +433,7 @@ class HarvesterSystem:
 
         if not worker.can_harvest(resource):
             logger.debug(
-                'handle_harvesting_cannot_harvest',
+                'handle_harvesting:cannot_harvest',
                 system=self.__class__.__name__,
                 resource=resource,
                 source=source,
@@ -421,12 +461,12 @@ class HarvesterSystem:
 
         worker_capacity = worker.inventory_available_for(resource)
         harvested_quantity = min(possible_harvest_quantity, worker_capacity)
-        harvest = [source.output() for _ in range(harvested_quantity)]
+        harvest = [resource for _ in range(harvested_quantity)]
         worker.receive_harvest(harvest)
         source.harvested_quantity(harvested_quantity)
 
         logger.info(
-            'handle_harvest_completed',
+            'handle_harvest:completed',
             harvestable=source,
             harvested_quantity=harvested_quantity,
             resource=resource,

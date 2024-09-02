@@ -60,8 +60,8 @@ class Pipeline:
         self, inputs: List[PipelineInput], output: PipelineOutput,
         ticks_per_cycle: int
     ):
-        self.inputs = inputs
-        self.output = output
+        self.inputs: List[PipelineInput] = inputs
+        self.output: PipelineOutput = output
         self.reserved = False
         self.ticks_per_cycle = ticks_per_cycle
 
@@ -79,7 +79,7 @@ class Pipeline:
         outputs: List[Resource] = []
 
         for _ in range(self.output.quantity):
-            output: Type[Resource] = self.output.resource()
+            output: Type[Resource] = self.output.resource
             added: bool = self.output.storage.add(output)
             if added:
                 outputs.append(output)
@@ -103,7 +103,7 @@ class Pipeline:
 
 
 class FactoryWorker(Worker):
-    _target_components = []
+    _target_components: List[type] = []
 
     @classmethod
     def target_components(cls) -> list:
@@ -205,7 +205,7 @@ class Factory(Component):
 class FactorySystem:
     component_types = [Factory]
 
-    def process(self, factories: List[Factory]) -> None:
+    def process(self, tick: int, factories: List[Factory]) -> None:
         for factory in factories:
             if not factory.active:
                 continue
@@ -226,7 +226,7 @@ class FactorySystem:
             worker: Optional[Worker] = worker_reference()
 
             if not worker:
-                self.workers.remove(worker_reference)
+                factory.workers.remove(worker_reference)
                 continue
 
             if not worker.can_work():
@@ -262,7 +262,7 @@ class FactorySystem:
                 outputs: List[Resource] = pipeline.build_outputs()
 
                 logger.debug(
-                    'process_workers_work_completed',
+                    'process_workers:work_completed',
                     output=pipeline.output.resource,
                     quantity=len(outputs),
                     worker=worker,
@@ -294,7 +294,7 @@ class FactorySystem:
         worker.state_change(STATE_ACTIVE)
 
         logger.info(
-            'activate_pipeline_on_worker_pipeline_activated',
+            'activate_pipeline_on_worker:pipeline_activated',
             factory=factory,
             worker=worker,
             pipeline=pipeline,
@@ -310,3 +310,4 @@ class FactorySystem:
             if not pipeline.is_available():
                 continue
             return pipeline
+        return None

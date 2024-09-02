@@ -36,7 +36,7 @@ class Generative(Component):
 class GenerativeSystem:
     component_types = [Generative]
 
-    def process(self, generators):
+    def process(self, tick: int, generators):
         for generator in generators:
             value = getattr(generator.owner, generator.target_attr)
             if value >= generator.max_value:

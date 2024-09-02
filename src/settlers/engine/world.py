@@ -1,4 +1,4 @@
-from collections import defaultdict
+from typing import Optional
 
 from settlers.engine.entities.entity import Entity
 from settlers.engine.components import ComponentManager
@@ -7,12 +7,12 @@ from settlers.engine.components import ComponentManager
 class World:
     __slots__ = ('entities', 'map', 'random_seed', 'systems')
 
-    def __init__(self, random_seed: int = None, map=None) -> None:
-        self.entities = []
-        self.systems = []
+    def __init__(self, random_seed: Optional[int] = None, map=None) -> None:
+        self.entities: list[Entity] = []
+        self.systems: list[type] = []
         self.random_seed = random_seed
 
-    def add_system(self, system) -> None:
+    def add_system(self, system: type) -> None:
         self.systems.append(system)
 
     def add_entity(self, entity: Entity) -> None:
@@ -22,14 +22,14 @@ class World:
         for entity in self.entities:
             entity.initialize()
 
-    def process(self) -> None:
+    def process(self, tick: int) -> None:
         for system in self.systems:
             components = self.components_matching(system.component_types)
 
             if not components:
                 continue
 
-            system.process(components)
+            system.process(tick, components)
 
     def components_matching(self, wants: list) -> list:
         components = []

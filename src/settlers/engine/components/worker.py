@@ -22,7 +22,7 @@ class Worker(Component):
         super().__init__(owner)
 
         self.state: str = STATE_IDLE
-        self.pipeline = None
+        self.pipeline: Optional[list] = None
         self.progress: int = 0
         self.workplace: Optional[weakref.ReferenceType] = None
         self._on_end_callbacks: List[Callable] = []

@@ -88,12 +88,17 @@ class VillagerAiSystem:
         ]
 
         self.entities = world.entities
+        self._awaiting_until = {}
 
     def handle_busy_harvester(self, villager: VillagerAi) -> None:
         proxy: ComponentProxy = getattr(villager.owner, Harvester.exposed_as)
         harvester: Harvester = proxy.reveal(Harvester)
 
         if not harvester.state == HARVESTER_STATE_FULL:
+            return
+
+        awaiting = self._awaiting_until.get(villager, 0)
+        if awaiting > self.current_tick:
             return
 
         possible_destinations: List[Building] = []
@@ -105,17 +110,30 @@ class VillagerAiSystem:
             wants: set = entity.inventory.wants_resources()
             common: set = harvester.resources.intersection(wants)
             if not common:
+                """
+                    logger.debug(
+                    'handle_busy_harvester:no_common_resources',
+                    owner=villager.owner,
+                    system=self.__class__.__name__,
+                    entity=entity,
+                    provides=harvester.resources,
+                    wants=wants,
+                    common=common,
+                )
+                """
                 continue
 
             possible_destinations.append(entity)
 
         if not possible_destinations:
             logger.debug(
-                'handle_busy_villager_harvester_destination_selection',
+                'handle_busy_harvester:destination_selection_empty',
                 owner=villager.owner,
                 system=self.__class__.__name__,
-                possible_destinations=possible_destinations,
+                provides=harvester.resources,
             )
+
+            self._awaiting_until[villager] = self.current_tick + 1000
             return
 
         destination = random.choice(possible_destinations)
@@ -129,7 +147,6 @@ class VillagerAiSystem:
 
     def handle_idle_villager(self, villager: VillagerAi) -> None:
         if not hasattr(villager.owner, 'resource_transport'):
-            import pdb; pdb.set_trace()
             return
 
         options: List[Callable] = [
@@ -138,6 +155,9 @@ class VillagerAiSystem:
         task: Callable = random.choice(options)
         task(villager)
 
+    '''
+    Find a random factory and check if it has resources available for transport.
+    '''
     def resource_transport_for_villager(self, villager: VillagerAi) -> None:
         factories: List[Factory] = ComponentManager[Factory]
 
@@ -161,7 +181,7 @@ class VillagerAiSystem:
                 continue
 
             logger.debug(
-                'process_component_accepted',
+                'resource_transport_for_villager:process_component_accepted',
                 system=self.__class__.__name__,
                 task=ResourceTransport,
                 target=destination,
@@ -175,10 +195,11 @@ class VillagerAiSystem:
             villager.task = ResourceTransport
             villager.state_change(STATE_BUSY)
             villager.owner.resource_transport.start(destination, source)
+
             return
 
     def _find_destination_for_transport(self, resource) -> Building:
-        destinations_by_priority = {
+        destinations_by_priority: dict[str, list[Building]] = {
             'high': [],
             'normal': [],
             'low': [],
@@ -214,7 +235,9 @@ class VillagerAiSystem:
 
             return destinations[0]
 
-    def process(self, villagers: List[VillagerAi]) -> None:
+    def process(self, tick: int, villagers: List[VillagerAi]) -> None:
+        self.current_tick = tick
+
         for villager in villagers:
             if villager.state == STATE_BUSY:
                 self.handle_busy_villager(villager)

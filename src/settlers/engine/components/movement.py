@@ -5,7 +5,7 @@ import weakref
 
 from . import Component
 from ..entities.position import Position
-
+from ..entities.resources.resource_storage import ResourceStorage
 STATE_IDLE = 'idle'
 STATE_MOVING = 'moving'
 STATE_LOADING = 'loading'
@@ -65,7 +65,7 @@ class Travel(Component):
 class TravelSystem:
     component_types: list = [Travel, Position, Velocity]
 
-    def process(self, entities: List[List[Component]]) -> None:
+    def process(self, tick: int, entities: List[List[Component]]) -> None:
         for travel, position, velocity in entities:
             if not travel.destination:
                 travel.state_change(STATE_IDLE)
@@ -205,7 +205,7 @@ class ResourceTransport(Component):
 class ResourceTransportSystem:
     component_types = [ResourceTransport, Travel]
 
-    def process(self, entities: list) -> None:
+    def process(self, tick: int, entities: list) -> None:
         for resource_transport, _travel in entities:
             if resource_transport.state == STATE_IDLE:
                 self.handle_idle(resource_transport)
@@ -326,7 +326,7 @@ class ResourceTransportSystem:
                 resource_transport.state_change(STATE_UNLOADING)
                 return
 
-    def handle_unloading(self, resource_transport):
+    def handle_unloading(self, resource_transport: ResourceTransport) -> None:
         if not resource_transport.destination:
             resource_transport.stop()
             return
@@ -351,10 +351,11 @@ class ResourceTransportSystem:
         rejected = []
 
         for resource in resources:
-            storage = resource_transport.owner.storages[resource]
+            storage: ResourceStorage = resource_transport.owner.storages[resource]
 
             while not storage.is_empty():
                 item = storage.pop()
+
                 if item.__class__ not in resources:
                     rejected.append(item)
                     continue

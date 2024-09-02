@@ -61,7 +61,7 @@ class ConstructionWorker(Worker):
     def __init__(self, owner: Entity, abilities: set) -> None:
         super().__init__(owner)
 
-        self.abilities = set(abilities)
+        self.abilities = abilities
 
     @classmethod
     def target_components(cls) -> List[Component]:
@@ -139,7 +139,7 @@ class ConstructionSystem:
         Construction,
     )
 
-    def process(self, buildings: List[Construction]) -> None:
+    def process(self, tick: int,  buildings: List[Construction]) -> None:
         for building in buildings:
             if building.state == STATE_NEW:
                 if not building.workers:
@@ -178,6 +178,12 @@ class ConstructionSystem:
         return True
 
     def complete(self, building: Construction) -> None:
+        logger.debug(
+            'complete',
+            building=building.owner,
+            system=self.__class__.__name__,
+        )
+
         building.stop()
 
         building.owner.components.remove(building)
