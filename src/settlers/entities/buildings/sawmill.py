@@ -39,7 +39,8 @@ def build_sawmill(
 
     sawmill = Building(
         "{name}'s Sawmill".format(name=name),
-        sawmill_storages
+        sawmill_storages,
+        renderable_type='building_sawmill'
     )
 
     for component in components:
@@ -82,6 +83,7 @@ def build_sawmill_construction_site(
         4,
         1,
         "{name}'s Sawmill".format(name=name),
+        'building_sawmill',
         sawmill_storages
     )
 

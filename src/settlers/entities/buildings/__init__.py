@@ -5,14 +5,18 @@ from settlers.engine.components.inventory_routing import InventoryRouting
 
 
 class Building(Entity):
-    __slots__ = ('inventory_routing_priority', 'name', 'storages')
+    __slots__ = ('inventory_routing_priority', 'name', 'storages', 'renderable_type')
 
-    def __init__(self, name, storages={}, inventory_routing_priority=[]):
+    '''
+    renderable_type allows overriding what the renderable will be. 
+    '''
+    def __init__(self, name, storages={}, inventory_routing_priority=[], renderable_type=None) -> None:
         super().__init__()
 
-        self.name = name
-        self.storages = storages
-        self.inventory_routing_priority = []
+        self.name: str = name
+        self.storages: dict = storages
+        self.inventory_routing_priority: list = []
+        self.renderable_type: str = renderable_type or 'building'
 
     def initialize(self):
         self.components.add(
@@ -20,7 +24,7 @@ class Building(Entity):
         )
 
         self.components.add(
-            (Renderable, 'building', 1)
+            (Renderable, self.renderable_type, 1)
         )
 
         super().initialize()

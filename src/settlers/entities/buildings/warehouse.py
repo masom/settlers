@@ -1,28 +1,49 @@
 from typing import List
 
 from settlers.engine.components import Component
+
+from settlers.engine.components.construction import (
+    ConstructionSpec
+)
+from settlers.entities.buildings.construction_site import (
+    build_construction_site
+)
 from settlers.engine.entities.resources.resource_storage import (
     ResourceStorage, ResourceStoragesType
 )
 from settlers.entities.buildings import Building
+
 from settlers.entities.resources.stone import (
-    StoneSlab, Stone
+    Stone, StoneSlab
 )
 from settlers.entities.resources.tree import (
-    TreeLog, Lumber
+    Lumber, TreeLog
 )
 
-
-def build_warehouse(name: str, components: List[Component]) -> Building:
-    storages: ResourceStoragesType = {
-        Lumber: ResourceStorage(True, True, 50, 0),
-        Stone: ResourceStorage(True, True, 50, 0),
-        StoneSlab: ResourceStorage(True, True, 10, 0),
-        TreeLog: ResourceStorage(True, True, 50, 0),
+def warehouse_storages() -> ResourceStoragesType:
+    return {
+        Lumber: ResourceStorage(True, True, 50, 2),
+        Stone: ResourceStorage(True, True, 50, 2),
+        StoneSlab: ResourceStorage(True, True, 10, 2),
+        TreeLog: ResourceStorage(True, True, 50, 2),
     }
 
-    storage = Building(
-        "{name}'s storage".format(name=name),
+
+def build_warehouse_construction_site(name: str, components: List[tuple], position: tuple) -> Building:
+    storages = warehouse_storages()
+
+    spec = ConstructionSpec(
+        [],
+        [],
+        {
+            Lumber: 10,
+            Stone: 5,
+        },
+        4,
+        1,
+        "{name}'s warehouse".format(name=name),
+        'building_warehouse',
         storages
     )
-    return storage
+
+    return build_construction_site(spec, components, position)

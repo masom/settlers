@@ -30,8 +30,16 @@ class RenderSystem:
             'medieval_rts/unit/villager_woman_grey.png',
             'medieval_rts/unit/villager_woman_red.png',
         ],
-        'building': ['hexagon_tiles/tiles/medieval/medieval_lumber.png'],
-        'construction': ['hexagon_tiles/tiles/medieval/medieval_ruins.png'],
+        'building_sawmill': [
+            'hexagon_tiles/tiles/medieval/medieval_lumber.png'
+        ],
+        'building_warehouse': [
+            'hexagon_tiles/tiles/medieval/medieval_cabin.png'
+        ],
+        'building_stone_workshop': [
+            'hexagon_tiles/tiles/medieval/medieval_house.png'
+        ],
+        'building_construction': ['hexagon_tiles/tiles/medieval/medieval_ruins.png'],
         'tree': ['hexagon_tiles/objects/treePine_large.png'],
         'stone_quarry': [
             'hexagon_tiles/objects/rockGrey_medium1.png',
@@ -42,7 +50,7 @@ class RenderSystem:
     }
 
     def __init__(self, renderer: sdl2.ext.Renderer, sprite_factory):
-        self.renderer = renderer
+        self.renderer: sdl2.ext.Renderer = renderer
         self.sprite_factory = sprite_factory
 
     def load_sprite(self, sprite_file: str):
@@ -65,13 +73,6 @@ class RenderSystem:
         for renderable, position in renderables:
             if not renderable.sprite:
                 t = renderable.type
-
-                if (
-                    renderable.type == 'building' and
-                    hasattr(renderable.owner, Construction.exposed_as)
-                ):
-                    t = 'construction'
-
                 sprite_path = random.choice(self.sprites[t])
                 renderable.sprite = self.load_sprite(sprite_path)
 

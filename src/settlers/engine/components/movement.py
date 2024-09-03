@@ -162,6 +162,8 @@ class ResourceTransport(Component):
         ]
 
         destination_items = set(accepted_resources)
+
+        # TODO Here we assume the workers already have items, that they are not going to get new ones...
         worker_items = set(self.owner.storages.keys())
 
         self._common_route_resources = worker_items.intersection(
@@ -194,12 +196,19 @@ class ResourceTransport(Component):
 
         self.destination = weakref.ref(destination)
 
-    def stop(self) -> None:
-        super().stop()
+    def stop(self, skip_idle_state=False) -> None:
+        super().stop(skip_idle_state=skip_idle_state)
         self.owner.travel.stop()
         self.destination = None
         self.source = None
         self._common_route_resources = None
+
+    def __repr__(self) -> str:
+        return "<{owner}#{component} {id}>".format(
+            owner=self.owner,
+            component=self.__class__.__name__,
+            id=hex(id(self))
+        )
 
 
 class ResourceTransportSystem:
@@ -228,10 +237,12 @@ class ResourceTransportSystem:
 
     def handle_idle(self, resource_transport: ResourceTransport) -> None:
         if not resource_transport.source:
+            resource_transport.stop()
             return
 
         source = resource_transport.source()
         if not source:
+            resource_transport.stop()
             return
 
         resources: set = resource_transport.common_route_resources()
@@ -240,6 +251,7 @@ class ResourceTransportSystem:
             return
 
         if not resource_transport.position() == source.position:
+            resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
             resource_transport.state_change(STATE_MOVING)
             resource_transport.owner.travel.start(source)
             return
@@ -248,12 +260,12 @@ class ResourceTransportSystem:
 
     def handle_loading(self, resource_transport: ResourceTransport) -> None:
         if not resource_transport.source:
-            resource_transport.state_change(STATE_IDLE)
+            resource_transport.stop()
             return
 
         source = resource_transport.source()
         if not source:
-            resource_transport.state_change(STATE_IDLE)
+            resource_transport.stop()
             return
 
         if not resource_transport.position() == source.position:
@@ -294,8 +306,8 @@ class ResourceTransportSystem:
 
         destination = resource_transport.destination()
         if not destination:
-            resource_transport.destination = None
-            resource_transport.state_change(STATE_IDLE)
+            # TODO HERE MIGHT BE BUG?
+            resource_transport.stop()
             return
 
         resource_transport.state_change(STATE_MOVING)
@@ -304,7 +316,7 @@ class ResourceTransportSystem:
     def handle_movement(self, resource_transport):
         if resource_transport.direction == TRANSPORT_DIRECTION_SOURCE:
             if not resource_transport.source:
-                resource_transport.state_change(STATE_IDLE)
+                resource_transport.stop()
                 return
 
             source = resource_transport.source()
@@ -346,11 +358,12 @@ class ResourceTransportSystem:
             logger.debug(
                 'handle_unloading:cannot_receive_resources',
                 source=resource_transport.source,
-                destination=resource_transport.destination,
+                destination=destination,
                 owner=resource_transport.owner,
                 system=self.__class__.__name__,
                 component=resource_transport,
             )
+
             resource_transport.destination = None
             return
         
@@ -375,7 +388,7 @@ class ResourceTransportSystem:
                     accepted.append(item)
                     continue
 
-            rejected.append(item)
+                rejected.append(item)
 
         for item in rejected:
             storage.add(item)
@@ -404,8 +417,7 @@ class ResourceTransportSystem:
             )
             resource_transport.stop()
         else:
-            resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
-            resource_transport.state_change(STATE_MOVING)
+            resource_transport.destination = None
 
         if resource_transport.source:
             source = resource_transport.source()

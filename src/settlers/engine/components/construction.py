@@ -23,7 +23,7 @@ class ConstructionSpec:
     __slots__ = (
         'components', 'construction_resources',
         'construction_abilities', 'construction_ticks',
-        'max_workers', 'name', 'storages'
+        'max_workers', 'name', 'renderable_type', 'storages'
     )
 
     def __init__(
@@ -33,15 +33,17 @@ class ConstructionSpec:
         construction_ticks: int,
         max_workers: int,
         name: str,
+        renderable_type: str,
         storages: dict
     ) -> None:
-        self.components = components
-        self.construction_abilities = set(construction_abilities)
-        self.construction_resources = construction_resources
-        self.construction_ticks = construction_ticks
-        self.max_workers = max_workers
-        self.name = name
-        self.storages = storages
+        self.components: ComponentsType = components
+        self.construction_abilities: set = set(construction_abilities)
+        self.construction_resources: ConstructionResourcesType = construction_resources
+        self.construction_ticks: int = construction_ticks
+        self.max_workers: int = max_workers
+        self.name: str = name
+        self.renderable_type: str = renderable_type
+        self.storages: dict = storages
 
     def __del__(self):
         logger.debug(
@@ -153,17 +155,17 @@ class ConstructionSystem:
     )
 
     def __init__(self) -> None:
-        self._past_tick: int = 0
+        self._last_checked_new: int = 0
 
     def process(self, tick: int,  constructions: List[Construction]) -> None:
-        past_tick = self._past_tick
-        self._past_tick = tick
-
+        self._last_checked_new = self._last_checked_new or 0
 
         for construction in constructions:
             if construction.state == STATE_NEW:
-                if (tick - past_tick) < 100:
-                        continue
+                if (tick - self._last_checked_new) < 1000:
+                    continue
+
+                self._last_checked_new = tick
 
                 if not construction.workers:
                     logger.debug(
@@ -174,11 +176,6 @@ class ConstructionSystem:
                     continue
 
                 if not self.can_build(construction):
-                    logger.debug(
-                        'process:cannot_build',
-                        system=self.__class__.__name__,
-                        construction=construction,
-                    )
                     continue
 
                 construction.state_change(STATE_IN_PROGRESS)
@@ -209,11 +206,22 @@ class ConstructionSystem:
 
     def can_build(self, construction: Construction) -> bool:
         if not construction.workers:
+            logger.info(
+                'can_build:no_workers',
+                building=construction.owner,
+                system=self.__class__.__name__
+            )
             return False
 
         for resource, quantity in construction.construction_resources().items():
             storage = construction.owner.storages[resource]
             if not storage.is_full():
+                logger.info(
+                    'can_build:missing_resource',
+                    building=construction.owner,
+                    system=self.__class__.__name__,
+                    resource=resource 
+                )
                 return False
 
         return True
@@ -246,6 +254,7 @@ class ConstructionSystem:
         for component_definition in building.spec.components:
             building.owner.components.add(component_definition)
 
-        building.owner.renderable.reset_sprite()
+        building.owner.renderable.reset_sprite(building.spec.renderable_type)
+
         building.spec = None
         building.owner = None

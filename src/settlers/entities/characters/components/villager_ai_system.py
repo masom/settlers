@@ -1,5 +1,6 @@
 import random
 import structlog
+from collections import defaultdict
 from typing import Callable, List
 
 from settlers.engine.components import (
@@ -161,6 +162,7 @@ class VillagerAiSystem:
     def resource_transport_for_villager(self, villager: VillagerAi) -> None:
         factories: List[Factory] = ComponentManager[Factory]
 
+        # Sample will return len(factories) elements in random order
         for factory in random.sample(factories, len(factories)):
             source: Building = factory.owner
 
@@ -174,22 +176,33 @@ class VillagerAiSystem:
                 continue
 
             destination = self._find_destination_for_transport(
+                source,
                 available_for_transport
             )
 
             if not destination:
                 continue
 
+            # TODO this is a hack to automatically setup the transport inventory for routing
+            if isinstance(villager.owner.storages, defaultdict):
+                wants: set[type] = destination.inventory.wants_resources()
+
+                for want in wants:
+                    villager.owner.storages[want]
+
             logger.debug(
                 'resource_transport_for_villager:process_component_accepted',
                 system=self.__class__.__name__,
                 task=ResourceTransport,
                 target=destination,
+                source=source,
                 villager=villager.owner,
                 valid_route=villager.owner.resource_transport.is_valid_route(
                     destination
                 ),
             )
+
+
 
             villager.owner.resource_transport.on_end(villager.on_task_ended)
             villager.task = ResourceTransport
@@ -198,7 +211,7 @@ class VillagerAiSystem:
 
             return
 
-    def _find_destination_for_transport(self, resource) -> Building:
+    def _find_destination_for_transport(self, origin: Building, resource: type) -> Building:
         destinations_by_priority: dict[str, list[Building]] = {
             'high': [],
             'normal': [],
@@ -209,7 +222,11 @@ class VillagerAiSystem:
 
         for location in locations:
             destination: Building = location.owner
+            if origin == destination:
+                continue
+
             wants: set[type] = destination.inventory.wants_resources()
+
             if not wants:
                 continue
 
@@ -221,6 +238,7 @@ class VillagerAiSystem:
                     destination
                 )
                 continue
+
             if hasattr(destination, Factory.exposed_as):
                 destinations_by_priority['normal'].append(
                     destination
@@ -233,7 +251,16 @@ class VillagerAiSystem:
             if not destinations:
                 continue
 
-            return destinations[0]
+            destination = random.choice(destinations)
+            logger.info(
+                '_find_destination_for_transport',
+                origin=origin,
+                destination=destination,
+                system=self.__class__.__name__,
+                resource=resource,
+                priority=priority
+            )
+            return destination
 
     def process(self, tick: int, villagers: List[VillagerAi]) -> None:
         self.current_tick = tick

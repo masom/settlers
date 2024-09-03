@@ -80,6 +80,7 @@ def build_stone_workshop_construction_site(
         4,
         1,
         "{name}'s stone workshop".format(name=name),
+        'building_stone_workshop',
         workshop_storages
     )
 
