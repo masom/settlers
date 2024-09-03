@@ -343,7 +343,17 @@ class ResourceTransportSystem:
             return
 
         if not destination.inventory.can_receive_resources():
+            logger.debug(
+                'handle_unloading:cannot_receive_resources',
+                source=resource_transport.source,
+                destination=resource_transport.destination,
+                owner=resource_transport.owner,
+                system=self.__class__.__name__,
+                component=resource_transport,
+            )
+            resource_transport.destination = None
             return
+        
 
         resources = resource_transport.common_route_resources()
 
