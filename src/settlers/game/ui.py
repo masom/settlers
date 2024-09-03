@@ -51,7 +51,10 @@ class RenderSystem:
 
         return self.sprite_factory.from_image(str(path))
 
-    def process(self, renderables: list):
+    def process(self, ticks: int, renderables: list):
+        if not hasattr(self, '_previous_ticks'):
+            self._previous_ticks = ticks
+
         z_sprites: list[list] = [
             [],
             [],
@@ -69,7 +72,6 @@ class RenderSystem:
                 ):
                     t = 'construction'
 
-                # HERE BE MISTAKE WITH CONSTRUCTION?
                 sprite_path = random.choice(self.sprites[t])
                 renderable.sprite = self.load_sprite(sprite_path)
 
@@ -170,7 +172,7 @@ class Manager:
             renderables.extend(world.components_matching(
                 self.render_system.component_types
             ))
-            self.render_system.process(renderables)
+            self.render_system.process(start, renderables)
 
             last = sdl2.SDL_GetTicks()
 

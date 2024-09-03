@@ -214,8 +214,9 @@ class Component:
 
         self.state = new_state
 
-    def stop(self) -> None:
-        self.state_change(STATE_IDLE)
+    def stop(self, skip_idle_state = False) -> None:
+        if not skip_idle_state:
+            self.state_change(STATE_IDLE) 
 
         for callback in self._on_end_callbacks:
             callback(self)

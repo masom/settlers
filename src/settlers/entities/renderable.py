@@ -1,5 +1,7 @@
 from settlers.engine.components import Component
+import structlog
 
+logger = structlog.get_logger("engine.renderable")
 
 class Renderable(Component):
     __slots__ = ('sprite', 'type', 'z')
@@ -15,4 +17,9 @@ class Renderable(Component):
         self.z = z
 
     def reset_sprite(self):
+        logger.debug(
+            'reset_sprite',
+            owner=self.owner,
+        )
+
         self.sprite = None

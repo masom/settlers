@@ -133,7 +133,7 @@ class VillagerAiSystem:
                 provides=harvester.resources,
             )
 
-            self._awaiting_until[villager] = self.current_tick + 1000
+            self._awaiting_until[villager] = self.current_tick + 10000
             return
 
         destination = random.choice(possible_destinations)
@@ -209,7 +209,7 @@ class VillagerAiSystem:
 
         for location in locations:
             destination: Building = location.owner
-            wants: set = destination.inventory.wants_resources()
+            wants: set[type] = destination.inventory.wants_resources()
             if not wants:
                 continue
 
@@ -253,7 +253,7 @@ class VillagerAiSystem:
                 self.handle_idle_villager(villager)
                 continue
 
-            component = getattr(villager.owner, task.exposed_as)
+            component: Component = getattr(villager.owner, task.exposed_as)
             if component.start(target):
                 logger.debug(
                     'process_component_accepted',
