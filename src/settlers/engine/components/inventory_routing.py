@@ -31,6 +31,7 @@ class InventoryRouting(Component):
         self, requested_resources: List[Type[Resource]] = []
     ) -> Optional[Type[Resource]]:
         storages: Dict[Type[Resource], ResourceStorage] = self.owner.storages
+
         building_resources: Set[Resource] = set([
             r for (r, s) in storages.items()
             if s.allows_outgoing
@@ -68,17 +69,21 @@ class InventoryRouting(Component):
         if len(self.owner.storages) == 0:
             return False
 
+        enabled = False
+
         for storage in self.owner.storages.values():
             if not storage.allows_incoming:
-                return False
-            return not storage.is_full()
+                continue
+
+            if storage.is_full():
+                continue
+
+            return True
 
         return False
 
     def receive_resource(self, resource: Type[Resource]) -> bool:
-        storage: Optional[ResourceStorage] = self.owner.storages[
-            resource
-        ]
+        storage: Optional[ResourceStorage] = self.owner.storages.get(resource, None)
 
         if storage is None:
             return False

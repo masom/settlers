@@ -100,6 +100,7 @@ class Harvester(Component):
             )
 
             if not input_storage:
+                kept.append(resource_type)
                 continue
 
             if input_storage.add(resource_type):
@@ -114,6 +115,9 @@ class Harvester(Component):
                     destination=destination,
                     destination_storage=input_storage
                 )
+        if not delivered:
+            self.destination = None
+
         logger.info(
             'delivered',
             owner=self.owner,
@@ -350,10 +354,12 @@ class HarvesterSystem:
             return
 
         if not worker.destination:
+            source = worker.source() if worker.source else None
+
             logger.debug(
                 'handle_delivery:no_destination',
                 system=self.__class__.__name__,
-                source=worker.source,
+                source=source or worker.source,
                 worker=worker,
             )
             self._awaiting_until[worker] = self._current_tick + 1000
@@ -366,7 +372,6 @@ class HarvesterSystem:
 
         if destination.position == worker.position():
             worker.deliver()
-            worker.state_change(STATE_IDLE)
             return
 
         if not worker.owner.travel.destination:
@@ -401,8 +406,7 @@ class HarvesterSystem:
             return
 
         resource: Type[Resource] = source.output
-
-        # 
+ 
         if worker.storage[resource].is_full():
             worker.state_change(STATE_FULL)
             return

@@ -56,35 +56,36 @@ def setup(world):
     world.add_system(ResourceTransportSystem())
     world.add_system(ConstructionSystem())
 
-    for _ in range(1):
+    for _ in range(2):
         t = Tree(1, 1)
         t.components.add(
-            (Position, random.randrange(0, 800), random.randrange(0, 600))
+            (Position, random.randrange(0, 700), random.randrange(0, 500))
         )
         world.add_entity(t)
     del(t)
 
-    for _ in range(1):
+    for _ in range(2):
         q = StoneQuarry(25)
         q.components.add(
-            (Position, random.randrange(0, 800), random.randrange(0, 600))
+            (Position, random.randrange(0, 700), random.randrange(0, 500))
         )
         world.add_entity(q)
     del(q)
     
     workforce_plan = {
-        Harvester: 3,
+        Harvester: 7,
         ConstructionWorker: 1,
         FactoryWorker: 2,
         ResourceTransport: 2,
     }
 
     for task, count in workforce_plan.items():
-        for _ in range(count):
+        for i in range(count):
             v = Villager()
 
             v.components.add(
-                (Position, random.randrange(0, 800), random.randrange(0, 600))
+                #(Position, random.randrange(10, 780), random.randrange(10, 580))
+                (Position, 10 + i, 10 + i)
             )
 
             if task == Harvester:
@@ -104,7 +105,7 @@ def setup(world):
         build_sawmill(
             'Bob',
             [
-                (Position, random.randrange(0, 800), random.randrange(0, 600))
+                (Position, random.randrange(10, 780), random.randrange(0, 580))
             ]
         )
     )
@@ -114,7 +115,7 @@ def setup(world):
         build_stone_workshop_construction_site(
             'Joseph',
             [],
-            (Position, random.randrange(0, 800), random.randrange(0, 600))
+            (Position, random.randrange(0, 780), random.randrange(0, 580))
         )
     )
 

@@ -152,7 +152,7 @@ class ResourceTransport(Component):
             and self._common_route_resources
         ):
             return self._common_route_resources or set()
-
+        
         if not _destination:
             return set()
 
@@ -347,16 +347,17 @@ class ResourceTransportSystem:
 
         resources = resource_transport.common_route_resources()
 
-        accepted = []
-        rejected = []
+        accepted: List[type] = []
+        rejected: List[type] = []
 
         for resource in resources:
+            # TODO: Check if receiver will want this.
             storage: ResourceStorage = resource_transport.owner.storages[resource]
 
             while not storage.is_empty():
                 item = storage.pop()
 
-                if item.__class__ not in resources:
+                if item not in resources:
                     rejected.append(item)
                     continue
 
@@ -379,8 +380,22 @@ class ResourceTransportSystem:
             system=self.__class__.__name__,
         )
 
-        resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
-        resource_transport.state_change(STATE_MOVING)
+        source = None
+        if resource_transport.source:
+            source = resource_transport.source()
+
+        if len(rejected) == resources and len(accepted) == 0:
+            logger.debug(
+                'handle_unloading:nothing_accepted',
+                destination=destination,
+                owner=resource_transport.owner,
+                component=resource_transport,
+                system=self.__class__.__name__,
+            )
+            resource_transport.stop()
+        else:
+            resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
+            resource_transport.state_change(STATE_MOVING)
 
         if resource_transport.source:
             source = resource_transport.source()

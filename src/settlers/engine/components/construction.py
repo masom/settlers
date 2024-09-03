@@ -69,6 +69,12 @@ class ConstructionWorker(Worker):
             cls._target_components.append(Construction)
         return cls._target_components
 
+    def __repr__(self) -> str:
+        return "<{owner}#{component} {id}>".format(
+            owner=self.owner,
+            component=self.__class__.__name__,
+            id=hex(id(self))
+        )
 
 class Construction(Component):
     __slots__ = (
@@ -133,45 +139,80 @@ class Construction(Component):
             component=self.__class__.__name__,
         )
 
+    def __repr__(self) -> str:
+        return "<{owner}#{component} {id}>".format(
+            owner=self.owner,
+            component=self.__class__.__name__,
+            id=hex(id(self))
+        )
+
 
 class ConstructionSystem:
     component_types = (
         Construction,
     )
 
-    def process(self, tick: int,  buildings: List[Construction]) -> None:
-        for building in buildings:
-            if building.state == STATE_NEW:
-                if not building.workers:
+    def __init__(self) -> None:
+        self._past_tick: int = 0
+
+    def process(self, tick: int,  constructions: List[Construction]) -> None:
+        past_tick = self._past_tick
+        self._past_tick = tick
+
+
+        for construction in constructions:
+            if construction.state == STATE_NEW:
+                if (tick - past_tick) < 100:
+                        continue
+
+                if not construction.workers:
+                    logger.debug(
+                        'process:no_workers',
+                        system=self.__class__.__name__,
+                        construction=construction,
+                    )
                     continue
 
-                if not self.can_build(building):
+                if not self.can_build(construction):
+                    logger.debug(
+                        'process:cannot_build',
+                        system=self.__class__.__name__,
+                        construction=construction,
+                    )
                     continue
 
-                building.state_change(STATE_IN_PROGRESS)
+                construction.state_change(STATE_IN_PROGRESS)
                 continue
 
-            if building.state == STATE_IN_PROGRESS:
-                if not building.workers:
+            if construction.state == STATE_IN_PROGRESS:
+                if not construction.workers:
                     continue
 
-                building.ticks += len(building.workers)
+                construction.ticks += len(construction.workers)
 
-                if not building.is_completed():
+                logger.debug(
+                    'process',
+                    ticks=construction.ticks,
+                    total_ticks=construction.spec.construction_ticks,
+                    system=self.__class__.__name__,
+                    construction=construction
+                )
+
+                if not construction.is_completed():
                     continue
 
-                building.state_change(STATE_COMPLETED)
+                construction.state_change(STATE_COMPLETED)
                 continue
 
-            if building.state == STATE_COMPLETED:
-                self.complete(building)
+            if construction.state == STATE_COMPLETED:
+                self.complete(construction)
 
-    def can_build(self, building: Construction) -> bool:
-        if not building.workers:
+    def can_build(self, construction: Construction) -> bool:
+        if not construction.workers:
             return False
 
-        for resource, quantity in building.construction_resources().items():
-            storage = building.owner.storages[resource]
+        for resource, quantity in construction.construction_resources().items():
+            storage = construction.owner.storages[resource]
             if not storage.is_full():
                 return False
 
@@ -184,7 +225,7 @@ class ConstructionSystem:
             system=self.__class__.__name__,
         )
 
-        building.stop()
+        building.stop(skip_idle_state=True)
 
         building.owner.components.remove(building)
         building.owner.storages = {}
