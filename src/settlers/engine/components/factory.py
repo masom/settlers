@@ -174,8 +174,12 @@ class Factory(Component):
                 return True
         return False
 
-    def start(self) -> None:
+    def start(self) -> bool:
+        if not self.workers:
+            return False
+
         self.active = True
+        return True
 
     def state_change(self, new_state: str) -> None:
         if self.state == new_state:
@@ -204,6 +208,16 @@ class Factory(Component):
 
 class FactorySystem:
     component_types = [Factory]
+
+    def __init__(self) -> None:
+        self._last_checked_at: int = 0
+
+    def should_process(self, tick: int) -> bool:
+        if (tick - self._last_checked_at) < 500:
+            return False
+        self._last_checked_at = tick
+
+        return True
 
     def process(self, tick: int, factories: List[Factory]) -> None:
         for factory in factories:
@@ -253,10 +267,7 @@ class FactorySystem:
             if not worker.pipeline:
                 continue
 
-            pipeline: Optional[Pipeline] = worker.pipeline()
-            if not pipeline:
-                worker.pipeline = None
-                continue
+            pipeline: Pipeline = worker.pipeline
 
             if worker.progress >= pipeline.ticks_per_cycle:
                 outputs: List[Resource] = pipeline.build_outputs()
@@ -290,7 +301,7 @@ class FactorySystem:
         pipeline.reserved = True
         pipeline.consume_input()
 
-        worker.pipeline = weakref.ref(pipeline)
+        worker.pipeline = pipeline 
         worker.state_change(STATE_ACTIVE)
 
         logger.info(

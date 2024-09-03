@@ -39,6 +39,9 @@ from settlers.entities.buildings.sawmill import (
 from settlers.entities.buildings.stone_workshop import (
     build_stone_workshop_construction_site
 )
+from settlers.entities.buildings.warehouse import (
+    build_warehouse_construction_site
+)
 from settlers.entities.characters.components.villager_ai_system import (
     VillagerAiSystem
 )
@@ -105,17 +108,23 @@ def setup(world):
         build_sawmill(
             'Bob',
             [
-                (Position, random.randrange(10, 780), random.randrange(0, 580))
+                (Position, random.randrange(10, 100), random.randrange(10, 100))
             ]
         )
     )
-
 
     world.add_entity(
         build_stone_workshop_construction_site(
             'Joseph',
             [],
-            (Position, random.randrange(0, 780), random.randrange(0, 580))
+            (Position, random.randrange(150, 200), random.randrange(100, 200))
         )
     )
 
+    world.add_entity(
+        build_warehouse_construction_site(
+            'ACME',
+            [],
+            (Position, random.randrange(250, 300), random.randrange(250, 300))
+        )
+    )

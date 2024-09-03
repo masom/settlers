@@ -16,10 +16,19 @@ class Renderable(Component):
         self.type = type
         self.z = z
 
-    def reset_sprite(self):
+    def reset_sprite(self, new_type: str) -> None:
         logger.debug(
             'reset_sprite',
             owner=self.owner,
         )
 
         self.sprite = None
+        self.type = new_type
+
+
+    def __repr__(self) -> str:
+        return "<{owner}#{component} {id}>".format(
+            owner=self.owner,
+            component=self.__class__.__name__,
+            id=hex(id(self))
+        )

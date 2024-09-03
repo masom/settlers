@@ -29,6 +29,10 @@ class World:
             if not components:
                 continue
 
+            if hasattr(system, 'should_process'):
+                if not system.should_process(tick):
+                    continue
+
             system.process(tick, components)
 
     def components_matching(self, wants: list) -> list:

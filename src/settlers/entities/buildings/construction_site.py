@@ -23,6 +23,7 @@ def build_construction_site(
     construction_site = Building(
         spec.name,
         storages,
+        renderable_type='building_construction'
     )
 
     construction_site.components.add(
