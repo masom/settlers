@@ -16,7 +16,11 @@ from settlers.engine.components.harvesting import (
 from settlers.engine.components.movement import (
     ResourceTransportSystem, TravelSystem
 )
+from settlers.engine.components.spawner import (
+    SpawnerSystem, SpawnerWorker
+)
 from settlers.engine.entities.position import Position
+
 from settlers.engine.components.movement import (
     ResourceTransport
 )
@@ -42,6 +46,8 @@ from settlers.entities.buildings.stone_workshop import (
 from settlers.entities.buildings.warehouse import (
     build_warehouse_construction_site
 )
+from settlers.entities.buildings.house import build_house
+
 from settlers.entities.characters.components.villager_ai_system import (
     VillagerAiSystem
 )
@@ -58,6 +64,7 @@ def setup(world):
     world.add_system(TravelSystem())
     world.add_system(ResourceTransportSystem())
     world.add_system(ConstructionSystem())
+    world.add_system(SpawnerSystem(world))
 
     for _ in range(2):
         t = Tree(1, 1)
@@ -79,6 +86,7 @@ def setup(world):
         Harvester: 7,
         ConstructionWorker: 1,
         FactoryWorker: 2,
+        SpawnerWorker: 1,
         ResourceTransport: 2,
     }
 
@@ -126,5 +134,15 @@ def setup(world):
             'ACME',
             [],
             (Position, random.randrange(250, 300), random.randrange(250, 300))
+        )
+    )
+
+    world.add_entity(
+        build_house(
+            world,
+            'House Omega',
+            [
+                (Position, 400, 200)
+            ]
         )
     )
