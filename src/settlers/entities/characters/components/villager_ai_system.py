@@ -1,7 +1,7 @@
 import random
 import structlog
 from collections import defaultdict
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 from settlers.engine.components import (
     Component, ComponentProxy, ComponentManager
@@ -44,7 +44,7 @@ class VillagerAi(Component):
         self.task = None
         self._available_tasks = []
 
-    def available_tasks(self, supported_tasks: list):
+    def available_tasks(self, supported_tasks: list[Component]):
         if self._available_tasks:
             return self._available_tasks
 
@@ -93,7 +93,7 @@ class VillagerAiSystem:
         ]
 
         self.entities = world.entities
-        self._awaiting_until = {}
+        self._awaiting_until: dict = {}
 
     def handle_busy_harvester(self, villager: VillagerAi) -> None:
         proxy: ComponentProxy = getattr(villager.owner, Harvester.exposed_as)
@@ -158,6 +158,7 @@ class VillagerAiSystem:
             self.resource_transport_for_villager
         ]
         task: Callable = random.choice(options)
+
         task(villager)
 
     '''
@@ -305,15 +306,20 @@ class VillagerAiSystem:
                 )
                 self.handle_idle_villager(villager)
 
-    def select_task(self, villager: VillagerAi) -> Callable:
-        available_tasks: List[Callable] = villager.available_tasks(self.tasks)
+    def select_task(self, villager: VillagerAi) -> Optional[Component]:
+        available_tasks: List[Component] = villager.available_tasks(self.tasks)
 
         if not available_tasks:
+            logger.debug(
+                'select_task:no_tasks',
+                system=self.__class__.__name__,
+                villager=villager.owner,
+            )
             return None
 
         return random.choice(available_tasks)
 
-    def target_for_task(self, task: Callable):
+    def target_for_task(self, task: Component):
         target_components: List[Component] = task.target_components()
 
         if not target_components:

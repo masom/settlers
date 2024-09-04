@@ -4,7 +4,6 @@ import path_fix # noqa
 from settlers.engine.world import World
 from settlers.game.ui import Manager
 
-
 structlog.configure(
     processors=[
         structlog.processors.StackInfoRenderer(),
@@ -23,6 +22,13 @@ logger = structlog.get_logger('run')
 
 world = World()
 
+options = {
+    "with_low_pop": True,
+    "with_house": True,
+    "with_constructions": False,
+    "with_sawmill": False,
+}
+
 m = Manager()
-m.initialize(world)
+m.initialize(world, options)
 m.start()

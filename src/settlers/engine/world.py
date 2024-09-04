@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Optional, List
 
 from settlers.engine.entities.entity import Entity
-from settlers.engine.components import ComponentManager
+from settlers.engine.components import Component, ComponentManager
 
 
 class World:
@@ -9,7 +9,7 @@ class World:
 
     def __init__(self, random_seed: Optional[int] = None, map=None) -> None:
         self.entities: list[Entity] = []
-        self.systems: list[type] = []
+        self.systems: list = []
         self.random_seed = random_seed
 
     def add_system(self, system: type) -> None:
@@ -35,8 +35,8 @@ class World:
 
             system.process(tick, components)
 
-    def components_matching(self, wants: list) -> list:
-        components = []
+    def components_matching(self, wants: list) -> list[Component]:
+        components: List[Component] = []
         len_wants = len(wants)
         entities = ComponentManager.entities_matching(wants)
 
