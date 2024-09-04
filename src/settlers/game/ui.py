@@ -33,6 +33,9 @@ class RenderSystem:
         'building_sawmill': [
             'hexagon_tiles/tiles/medieval/medieval_lumber.png'
         ],
+        'building_house': [
+            'hexagon_tiles/tiles/medieval/medieval_smallCastle.png'
+        ],
         'building_warehouse': [
             'hexagon_tiles/tiles/medieval/medieval_cabin.png'
         ],

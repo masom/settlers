@@ -1,6 +1,6 @@
 import structlog
 import weakref
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Callable
 
 from settlers.engine.components import Component
 from settlers.engine.components.worker import Worker
@@ -75,8 +75,8 @@ class Pipeline:
 
         return True
 
-    def build_outputs(self) -> List[Resource]:
-        outputs: List[Resource] = []
+    def build_outputs(self) -> List[Type[Resource]]:
+        outputs: List[Type[Resource]] = []
 
         for _ in range(self.output.quantity):
             output: Type[Resource] = self.output.resource
@@ -211,6 +211,7 @@ class FactorySystem:
 
     def __init__(self) -> None:
         self._last_checked_at: int = 0
+        self._on_production_callbacks: List[Callable] = []
 
     def should_process(self, tick: int) -> bool:
         if (tick - self._last_checked_at) < 500:
@@ -269,26 +270,36 @@ class FactorySystem:
 
             pipeline: Pipeline = worker.pipeline
 
-            if worker.progress >= pipeline.ticks_per_cycle:
-                outputs: List[Resource] = pipeline.build_outputs()
-
-                logger.debug(
-                    'process_workers:work_completed',
-                    output=pipeline.output.resource,
-                    quantity=len(outputs),
-                    worker=worker,
-                    component=factory,
-                    owner=factory.owner,
-                    system=self.__class__.__name__,
-                )
-
-                worker.pipeline = None
-                worker.progress = 0
-                pipeline.reserved = False
-
-                worker.state_change(STATE_IDLE)
-            else:
+            if worker.progress < pipeline.ticks_per_cycle:
                 worker.progress += 1
+                continue
+
+            self._process_output(factory, worker, pipeline)
+
+    def on_production(self, callback: Callable) -> None:
+        self._on_production_callbacks.append(callback)
+
+    def _process_output(self, factory, worker: Worker, pipeline: Pipeline) -> None:
+        outputs: list = pipeline.build_outputs()
+
+        logger.debug(
+            'process_workers:work_completed',
+            output=outputs[0],
+            quantity=len(outputs),
+            worker=worker,
+            component=factory,
+            owner=factory.owner,
+            system=self.__class__.__name__,
+        )
+
+        for callback in self._on_production_callbacks:
+            callback(factory, outputs)
+
+        worker.pipeline = None
+        worker.progress = 0
+        pipeline.reserved = False
+
+        worker.state_change(STATE_IDLE)
 
     def activate_pipeline_on_worker(self, factory: Factory, worker) -> bool:
         pipeline: Optional[Pipeline] = self.available_pipeline_for_factory(
