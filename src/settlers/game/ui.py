@@ -7,7 +7,6 @@ import sdl2.ext
 import signal
 import structlog
 
-from settlers.engine.components.construction import Construction
 from settlers.engine.entities.position import Position
 from settlers.entities.map import Map
 from settlers.entities.renderable import Renderable
@@ -122,17 +121,17 @@ class Manager:
 
     def setup_signals(self):
         def wrap_terminate(signum, stackframe):
-            self.terminate(signal, stackframe)
+            self.terminate(signum, stackframe)
         signal.signal(signal.SIGINT, wrap_terminate)
         signal.signal(signal.SIGTERM, wrap_terminate)
 
-    def initialize(self, world):
+    def initialize(self, world, options: dict):
         self.window.show()
         sdl2.SDL_RaiseWindow(self.window.window)
 
         self.world = world
 
-        setup(self.world)
+        setup(self.world, options)
 
         self.world.initialize()
 

@@ -116,10 +116,6 @@ class SpawnerSystem(FactorySystem):
         for spawn in spawns:
             spawn.components.add(ResourceTransport)
             spawn.components.add((Harvester, [], spawn.storages))
-            spawn.components.add((Position, factory_position.x + 1, factory_position.y + 10))
+            spawn.components.add((Position, factory_position.x + 1, factory_position.y + 50))
 
             self.world.add_entity(spawn)
-
-    def process(self, tick: int, factories: List[Spawner]) -> None:
-        logger.debug('process', system=self.__class__.__name__)
-        super().process(tick, factories)

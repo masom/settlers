@@ -54,7 +54,7 @@ from settlers.entities.characters.components.villager_ai_system import (
 from settlers.entities.characters.villager import Villager
 
 
-def setup(world):
+def setup(world, options: dict):
     random.seed(world.random_seed) 
 
     world.add_system(VillagerAiSystem(world))
@@ -66,29 +66,35 @@ def setup(world):
     world.add_system(ConstructionSystem())
     world.add_system(SpawnerSystem(world))
 
-    for _ in range(2):
+    for _ in range(6):
         t = Tree(1, 1)
         t.components.add(
-            (Position, random.randrange(0, 700), random.randrange(0, 500))
+            (Position, random.randrange(400, 740), random.randrange(310, 540))
         )
         world.add_entity(t)
     del(t)
 
-    for _ in range(2):
+    for _ in range(5):
         q = StoneQuarry(25)
         q.components.add(
-            (Position, random.randrange(0, 700), random.randrange(0, 500))
+            (Position, random.randrange(400, 740), random.randrange(10, 300))
         )
         world.add_entity(q)
     del(q)
     
-    workforce_plan = {
-        Harvester: 7,
-        ConstructionWorker: 1,
-        FactoryWorker: 2,
-        SpawnerWorker: 1,
-        ResourceTransport: 3,
-    }
+    if options["with_low_pop"]:
+        workforce_plan = {
+            Harvester: 2,
+            SpawnerWorker: 1,
+        }
+    else:
+        workforce_plan = {
+            Harvester: 7,
+            ConstructionWorker: 2,
+            FactoryWorker: 2,
+            SpawnerWorker: 1,
+            ResourceTransport: 2,
+        }
 
     for task, count in workforce_plan.items():
         for i in range(count):
@@ -112,37 +118,40 @@ def setup(world):
         del(v)
 
 
-    world.add_entity(
-        build_sawmill(
-            'Bob',
-            [
-                (Position, random.randrange(10, 100), random.randrange(10, 100))
-            ]
+    if options["with_sawmill"]:
+        world.add_entity(
+            build_sawmill(
+                'Bob',
+                [
+                    (Position, random.randrange(10, 100), random.randrange(10, 100))
+                ]
+            )
         )
-    )
 
-    world.add_entity(
-        build_stone_workshop_construction_site(
-            'Joseph',
-            [],
-            (Position, random.randrange(150, 200), random.randrange(100, 200))
+    if options["with_constructions"]:
+        world.add_entity(
+            build_stone_workshop_construction_site(
+                'Joseph',
+                [],
+                (Position, random.randrange(150, 200), random.randrange(100, 200))
+            )
         )
-    )
 
-    world.add_entity(
-        build_warehouse_construction_site(
-            'ACME',
-            [],
-            (Position, random.randrange(250, 300), random.randrange(250, 300))
+        world.add_entity(
+            build_warehouse_construction_site(
+                'ACME',
+                [],
+                (Position, random.randrange(250, 300), random.randrange(250, 300))
+            )
         )
-    )
 
-    world.add_entity(
-        build_house(
-            world,
-            'House Omega',
-            [
-                (Position, 400, 200)
-            ]
+    if options["with_house"]:
+        world.add_entity(
+            build_house(
+                world,
+                'House Omega',
+                [
+                    (Position, 100, 300)
+                ]
+            )
         )
-    )

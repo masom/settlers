@@ -141,7 +141,7 @@ class ComponentProxy:
         will be returned
     :return: The proxied component
     '''
-    def reveal(self, expected_type: type = None) -> object:
+    def reveal(self, expected_type: Optional[type] = None) -> object:
         if expected_type:
             assert isinstance(self._component, expected_type), \
                 "{component} should be {expected_type}, got {type}".format(
@@ -169,7 +169,7 @@ class ComponentProxy:
             )
             raise AttributeError(message)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if not other:
             return False
 
@@ -178,7 +178,7 @@ class ComponentProxy:
     def __hasattr__(self, attr: str) -> bool:
         return attr in self._exposed_methods
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{klass}<{proxied}> methods={methods}>".format(
             proxied=self._component,
             klass=self.__class__.__name__,
@@ -192,7 +192,7 @@ STATE_IDLE = 'idle'
 class Component:
     __slots__ = ('_on_end_callbacks', 'owner', 'state', '__weakref__')
 
-    def __init__(self, owner):
+    def __init__(self, owner) -> None:
         self._on_end_callbacks: List[Callable] = []
         self.owner = owner
         self.state = STATE_IDLE
@@ -241,8 +241,8 @@ class ComponentManager(metaclass=ComponentManagerMeta):
     @classmethod
     def entity(
         cls, identifier: int
-    ) -> Optional[Tuple[object, List[Component]]]:
-        return cls._entities[identifier]
+    ) -> Optional[List[Component]]:
+        return cls._entities.get(identifier, None)
 
     @classmethod
     def entities_matching(cls, selection: List[type]) -> list:
@@ -261,4 +261,3 @@ class ComponentManager(metaclass=ComponentManagerMeta):
         return entities
 
 
-ComponentsType = Union[List[Component], List[tuple]]
