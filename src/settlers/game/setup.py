@@ -87,7 +87,7 @@ def setup(world):
         ConstructionWorker: 1,
         FactoryWorker: 2,
         SpawnerWorker: 1,
-        ResourceTransport: 2,
+        ResourceTransport: 3,
     }
 
     for task, count in workforce_plan.items():

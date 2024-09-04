@@ -17,6 +17,9 @@ from settlers.engine.components.harvesting import (
     STATE_FULL as HARVESTER_STATE_FULL,
     STATE_DELIVERING as HARVESTER_STATE_DELIVERING
 )
+from settlers.engine.components.spawner import (
+    SpawnerWorker,
+)
 from settlers.engine.components.inventory_routing import (
     InventoryRouting
 )
@@ -86,6 +89,7 @@ class VillagerAiSystem:
             Harvester,
             ConstructionWorker,
             FactoryWorker,
+            SpawnerWorker,
         ]
 
         self.entities = world.entities
@@ -201,8 +205,6 @@ class VillagerAiSystem:
                     destination
                 ),
             )
-
-
 
             villager.owner.resource_transport.on_end(villager.on_task_ended)
             villager.task = ResourceTransport
