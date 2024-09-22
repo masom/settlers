@@ -1,6 +1,8 @@
 import random
 from collections import defaultdict
 
+from settlers.engine.world import World
+
 from settlers.engine.components.construction import (
     ConstructionSystem
 )
@@ -54,7 +56,7 @@ from settlers.entities.characters.components.villager_ai_system import (
 from settlers.entities.characters.villager import Villager
 
 
-def setup(world, options: dict):
+def setup(world: World, options: dict):
     random.seed(world.random_seed) 
 
     world.add_system(VillagerAiSystem(world))

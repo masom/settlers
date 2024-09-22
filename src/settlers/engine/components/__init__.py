@@ -1,6 +1,6 @@
 from collections import defaultdict
 import structlog
-from typing import Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 logger = structlog.get_logger('components')
 
@@ -10,8 +10,8 @@ class Components:
 
     def __init__(self, owner: object):
         self.owner = owner
-        self.components: List[tuple] = []
-        self.component_classes: Set[Component] = set()
+        self.components: List[Component] = []
+        self.component_classes: Set[Type[Component]] = set()
 
     def initialize(self):
         parents: List[Type[object]] = [self.owner.__class__]
@@ -35,7 +35,7 @@ class Components:
 
         return parents
 
-    def add(self, component_definition: tuple) -> None:
+    def add(self, component_definition: Any) -> None:
         logger.debug(
             "add",
             owner=self.owner,
@@ -48,7 +48,7 @@ class Components:
             component_instance = component_definition
         else:
             component_class: Optional[Type[Component]] = None
-            arguments = []
+            arguments: Tuple = ()
 
             if type(component_definition) is tuple:
                 component_class = component_definition[0]
@@ -63,7 +63,14 @@ class Components:
                     )
                 )
 
-            component_instance: Component = component_class(
+            if not component_class:
+                raise RuntimeError(
+                    "No component class found for {definition}".format(
+                        definition=component_definition
+                    )
+                )
+
+            component_instance = component_class(
                 self.owner,
                 *arguments
             )
@@ -227,6 +234,9 @@ class Component:
 ComponentsType = Dict[Type[Component], List[Component]]
 
 
+'''
+Allows the ComponentManager to be interfaced with `[ComponentClass]` syntax.
+'''
 class ComponentManagerMeta(type):
     _components: ComponentsType = defaultdict(list)
 

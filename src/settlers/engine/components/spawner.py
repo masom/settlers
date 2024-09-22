@@ -8,10 +8,7 @@ from settlers.engine.entities.position import Position
 from settlers.engine.entities.resources import Resource
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
 from settlers.engine.components.factory import Factory, FactorySystem, Pipeline as FactoryPipeline 
-from settlers.engine.components.movement import (
-    ResourceTransport
-)
-from settlers.engine.components.harvesting import Harvester
+from settlers.engine.world import World
 
 STATE_IDLE = 'idle'
 STATE_ACTIVE = 'active'
@@ -102,9 +99,9 @@ class Spawner(Factory):
 class SpawnerSystem(FactorySystem):
     component_types = [Spawner]
 
-    def __init__(self, world) -> None:
+    def __init__(self, world: World) -> None:
         super().__init__()
-        self.world = world
+        self.world: World = world
 
         self.on_production(self._on_spawns)
 
@@ -113,9 +110,8 @@ class SpawnerSystem(FactorySystem):
             Position
         )
 
-        for spawn in spawns:
-            spawn.components.add(ResourceTransport)
-            spawn.components.add((Harvester, [], spawn.storages))
-            spawn.components.add((Position, factory_position.x + 1, factory_position.y + 50))
+        position = (Position, factory_position.x + 1, factory_position.y + 50) 
 
+        for spawn in spawns:
+            spawn.on_spawn([position])
             self.world.add_entity(spawn)
