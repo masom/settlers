@@ -46,7 +46,7 @@ class World:
 
         method = getattr(components, method_name)
 
-        for entity, entity_components in entities:
+        for _entity, entity_components in entities:
             method(entity_components)
 
         return components

@@ -268,6 +268,14 @@ class VillagerAiSystem:
     def process(self, tick: int, villagers: List[VillagerAi]) -> None:
         self.current_tick = tick
 
+        if self.current_tick % 10 == 0:
+            logger.debug(
+                'process',
+                system=self.__class__.__name__,
+                tick=self.current_tick,
+                villagers=len(villagers),
+            )
+
         for villager in villagers:
             if villager.state == STATE_BUSY:
                 self.handle_busy_villager(villager)

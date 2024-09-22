@@ -1,6 +1,9 @@
-from collections import defaultdict
+# -*- coding: utf-8 -*-
+
 import names
-from typing import Optional
+from collections import defaultdict
+
+from typing import List, Optional
 
 from settlers.engine.entities.entity import Entity
 from settlers.engine.components.movement import (
@@ -15,9 +18,11 @@ from settlers.entities.characters.components.villager_ai_system import (
 )
 from settlers.entities.renderable import Renderable
 
+from settlers.engine.components.movement import ResourceTransport
+from settlers.engine.components.harvesting import Harvester
 
 class Villager(Entity):
-    __slots__ = ('name', 'storage')
+    __slots__ = ('name', 'storages')
 
     components = [
         VillagerAi,
@@ -36,6 +41,16 @@ class Villager(Entity):
             self._resource_storage_factory
         )
         self.name = name
+
+
+    def on_spawn(self, components: List):
+        self.initialize()
+
+        for component in components:
+            self.components.add(component)
+
+        self.components.add(ResourceTransport)
+        self.components.add((Harvester, [], self.storages))
 
     def _resource_storage_factory(self) -> ResourceStorage:
         return ResourceStorage(True, True, 1)
