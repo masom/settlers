@@ -26,7 +26,6 @@ from settlers.entities.characters.villager import Villager
 
 
 def build_house(
-    world,
     name: str,
     components: List[tuple]
 ) -> Building:

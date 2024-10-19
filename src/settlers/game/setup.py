@@ -56,7 +56,7 @@ from settlers.entities.characters.components.villager_ai_system import (
 from settlers.entities.characters.villager import Villager
 
 
-def setup(world: World, options: dict):
+def setup(world: World, options: dict) -> None:
     random.seed(world.random_seed) 
 
     world.add_system(VillagerAiSystem(world))
@@ -108,7 +108,7 @@ def setup(world: World, options: dict):
             )
 
             if task == Harvester:
-                task_info = (task, [], v.storages)
+                task_info: tuple = (task, [], v.storages)
             elif task == ConstructionWorker:
                 task_info = (task, [])
             else:
@@ -150,7 +150,6 @@ def setup(world: World, options: dict):
     if options["with_house"]:
         world.add_entity(
             build_house(
-                world,
                 'House Omega',
                 [
                     (Position, 100, 300)

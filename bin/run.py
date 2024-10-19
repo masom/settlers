@@ -28,8 +28,8 @@ world = World()
 options = {
     "with_low_pop": True,
     "with_house": True,
-    "with_constructions": False,
-    "with_sawmill": False,
+    "with_constructions": True,
+    "with_sawmill": True,
 }
 
 m = Manager()
