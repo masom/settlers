@@ -1,80 +1,98 @@
 import math
 import structlog
-from typing import List, Optional
+from typing import List, Optional, Tuple, Type
 import weakref
 
-from . import Component
+from . import Component, ComponentManager
+from ..entities.entity import Entity
 from ..entities.position import Position
 from ..entities.resources.resource_storage import ResourceStorage
-STATE_IDLE = 'idle'
-STATE_MOVING = 'moving'
-STATE_LOADING = 'loading'
-STATE_UNLOADING = 'unloading'
 
-logger = structlog.get_logger('engine.movement')
+STATE_IDLE = "idle"
+STATE_MOVING = "moving"
+STATE_LOADING = "loading"
+STATE_UNLOADING = "unloading"
+
+logger = structlog.get_logger("engine.movement")
 
 
 class Velocity(Component):
-    __slots__ = ['speed']
+    __slots__ = ["speed"]
 
     def __init__(self, owner, speed: int = 1):
         super().__init__(owner)
         self.speed: int = speed
 
 
-DIRECTION_UP: str = 'up'
-DIRECTION_DOWN: str = 'down'
-DIRECTION_LEFT: str = 'left'
-DIRECTION_RIGHT: str = 'right'
+DIRECTION_UP: str = "up"
+DIRECTION_DOWN: str = "down"
+DIRECTION_LEFT: str = "left"
+DIRECTION_RIGHT: str = "right"
 
-TRANSPORT_DIRECTION_SOURCE: str = 'source'
-TRANSPORT_DIRECTION_DESTINATION: str = 'destination'
+TRANSPORT_DIRECTION_SOURCE: str = "source"
+TRANSPORT_DIRECTION_DESTINATION: str = "destination"
 
 
 class Travel(Component):
-    __slots__ = ('destination')
-
-    exposed_as = 'travel'
-    exposed_methods = ('destination', 'on_end', 'start', 'stop')
+    __slots__ = "destination"
 
     def __init__(self, owner) -> None:
         super().__init__(owner)
 
-        self.destination: Optional[weakref.ReferenceType] = None
+        self.destination: Optional[weakref.ReferenceType[Entity]] = None
 
     def start(self, destination) -> None:
         if self.destination:
             logger.error(
-                'start_failed_destination_set',
+                "start_failed_destination_set",
                 component=self.__class__.__name__,
                 owner=self.owner,
                 destination=self.destination(),
                 proposed_destination=destination,
             )
-            raise RuntimeError('already moving somewhere')
+            raise RuntimeError("already moving somewhere")
 
         self.destination = weakref.ref(destination)
         self.state_change(STATE_MOVING)
 
-    def stop(self) -> None:
-        super().stop()
+    def stop(self, skip_idle_state=False) -> None:
         self.destination = None
-        self.state_change(STATE_IDLE)
+        super().stop(skip_idle_state)
 
 
 class TravelSystem:
-    component_types: list = [Travel, Position, Velocity]
+    """
+    The TravelSystem is responsible for moving components in the game.
+
+    It looks for entities that have `Travel`, `Position`, and `Velocity` components attached.
+    """
+
+    component_types: Tuple[Type[Component], Type[Component], Type[Component]] = (
+        Travel,
+        Position,
+        Velocity,
+    )
 
     def process(self, tick: int, entities: List[List[Component]]) -> None:
-        for travel, position, velocity in entities:
+        travel: Travel
+        position: Position
+        velocity: Velocity
+
+        # Ignoring types is required here as kinda need generics + type casting down
+        # to the actual types to use for completion.
+        for travel, position, velocity in entities:  # type: ignore
+            if travel.state == STATE_IDLE and not travel.destination:
+                continue
+
             if not travel.destination:
                 travel.state_change(STATE_IDLE)
                 continue
 
             destination = travel.destination()
+
             if not destination:
                 logger.debug(
-                    'process_destination_dead',
+                    "process_destination_dead",
                     destination=travel.destination,
                     owner=travel.owner,
                     system=self.__class__.__name__,
@@ -88,21 +106,23 @@ class TravelSystem:
                 continue
 
             if travel.state == STATE_MOVING:
-                if destination.position == travel.owner.position:
+                destination_position: Position = destination.position.reveal(Position)
+
+                if destination_position == position:
+                    logger.debug(
+                        "process_destination_reached",
+                        destination=destination,
+                        owner=travel.owner,
+                        system=self.__class__.__name__,
+                    )
+
                     travel.stop()
                     continue
-
-                destination_position: Position = destination.position.reveal(
-                    Position
-                )
 
                 delta_x: int = destination_position.x - position.x
                 delta_y: int = destination_position.y - position.y
 
-                distance: float = math.sqrt(
-                    math.pow(delta_x, 2)
-                    + math.pow(delta_y, 2)
-                )
+                distance: float = math.sqrt(math.pow(delta_x, 2) + math.pow(delta_y, 2))
 
                 new_x: int = 0
                 new_y: int = 0
@@ -120,12 +140,10 @@ class TravelSystem:
 
 
 class ResourceTransport(Component):
-    __slots__ = (
-        '_common_route_resources', 'destination', 'direction', 'source'
-    )
+    __slots__ = ("_common_route_resources", "destination", "direction", "source")
 
-    exposed_as = 'resource_transport'
-    exposed_methods = ('is_valid_route', 'on_end', 'start', 'stop')
+    exposed_as = "resource_transport"
+    exposed_methods = ("is_valid_route", "on_end", "start", "stop")
 
     def __init__(self, owner) -> None:
         super().__init__(owner)
@@ -142,23 +160,21 @@ class ResourceTransport(Component):
             _destination = destination
 
         is_planned_destination: bool = (
-            destination is not None and
-            self.destination is not None and
-            destination == self.destination()
+            destination is not None
+            and self.destination is not None
+            and destination == self.destination()
         )
 
         if (
-            (is_planned_destination or destination is None)
-            and self._common_route_resources
-        ):
+            is_planned_destination or destination is None
+        ) and self._common_route_resources:
             return self._common_route_resources or set()
-        
+
         if not _destination:
             return set()
 
         accepted_resources = [
-            r for (r, s) in _destination.storages.items()
-            if s.allows_incoming
+            r for (r, s) in _destination.storages.items() if s.allows_incoming
         ]
 
         destination_items = set(accepted_resources)
@@ -166,12 +182,10 @@ class ResourceTransport(Component):
         # TODO Here we assume the workers already have items, that they are not going to get new ones...
         worker_items = set(self.owner.storages.keys())
 
-        self._common_route_resources = worker_items.intersection(
-            destination_items
-        )
+        self._common_route_resources = worker_items.intersection(destination_items)
 
         logger.debug(
-            'common_route_resources',
+            "common_route_resources",
             owner=self.owner,
             component=self.__class__.__name__,
             common_resources=self._common_route_resources,
@@ -187,7 +201,7 @@ class ResourceTransport(Component):
 
     def start(self, destination, source=None) -> None:
         if self.destination:
-            raise RuntimeError('already going somewhere')
+            raise RuntimeError("already going somewhere")
 
         if source:
             self.source = weakref.ref(source)
@@ -198,44 +212,55 @@ class ResourceTransport(Component):
 
     def stop(self, skip_idle_state=False) -> None:
         super().stop(skip_idle_state=skip_idle_state)
-        self.owner.travel.stop()
+
+        travel: Travel = ComponentManager.fetch(self.owner.id(), Travel)
+        travel.stop()
+
         self.destination = None
         self.source = None
         self._common_route_resources = None
 
     def __repr__(self) -> str:
         return "<{owner}#{component} {id}>".format(
-            owner=self.owner,
-            component=self.__class__.__name__,
-            id=hex(id(self))
+            owner=self.owner, component=self.__class__.__name__, id=hex(id(self))
         )
 
 
 class ResourceTransportSystem:
-    component_types = [ResourceTransport, Travel]
+    component_types = (ResourceTransport, Travel)
 
-    def process(self, tick: int, entities: list) -> None:
-        for resource_transport, _travel in entities:
+    def process(self, tick: int, entities: list[list[Component]]) -> None:
+        if tick % 2 == 1:
+            return
+
+        resource_transport: ResourceTransport
+        travel: Travel
+
+        for resource_transport, travel in entities:
             if resource_transport.state == STATE_IDLE:
-                self.handle_idle(resource_transport)
+                self.handle_idle(resource_transport, travel)
                 continue
 
             if resource_transport.state == STATE_LOADING:
-                self.handle_loading(resource_transport)
+                self.handle_loading(resource_transport, travel)
                 continue
 
             if resource_transport.state == STATE_UNLOADING:
-                self.handle_unloading(resource_transport)
+                self.handle_unloading(resource_transport, travel)
                 continue
 
             if resource_transport.state == STATE_MOVING:
-                self.handle_movement(resource_transport)
+                self.handle_movement(resource_transport, travel)
                 continue
 
-            import pdb; pdb.set_trace()
+            import pdb
+
+            pdb.set_trace()
             raise RuntimeError
 
-    def handle_idle(self, resource_transport: ResourceTransport) -> None:
+    def handle_idle(
+        self, resource_transport: ResourceTransport, travel: Travel
+    ) -> None:
         if not resource_transport.source:
             resource_transport.stop()
             return
@@ -253,12 +278,14 @@ class ResourceTransportSystem:
         if not resource_transport.position() == source.position:
             resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
             resource_transport.state_change(STATE_MOVING)
-            resource_transport.owner.travel.start(source)
+            travel.start(source)
             return
 
         resource_transport.state_change(STATE_LOADING)
 
-    def handle_loading(self, resource_transport: ResourceTransport) -> None:
+    def handle_loading(
+        self, resource_transport: ResourceTransport, travel: Travel
+    ) -> None:
         if not resource_transport.source:
             resource_transport.stop()
             return
@@ -292,7 +319,7 @@ class ResourceTransportSystem:
             accepted.append(item)
 
         logger.debug(
-            'handle_loading',
+            "handle_loading",
             accepted=accepted,
             source=source,
             owner=resource_transport.owner,
@@ -311,7 +338,7 @@ class ResourceTransportSystem:
             return
 
         resource_transport.state_change(STATE_MOVING)
-        resource_transport.owner.travel.start(destination)
+        travel.start(destination)
 
     def handle_movement(self, resource_transport):
         if resource_transport.direction == TRANSPORT_DIRECTION_SOURCE:
@@ -338,7 +365,9 @@ class ResourceTransportSystem:
                 resource_transport.state_change(STATE_UNLOADING)
                 return
 
-    def handle_unloading(self, resource_transport: ResourceTransport) -> None:
+    def handle_unloading(
+        self, resource_transport: ResourceTransport, travel: Travel
+    ) -> None:
         if not resource_transport.destination:
             resource_transport.stop()
             return
@@ -348,15 +377,22 @@ class ResourceTransportSystem:
             resource_transport.stop()
             return
 
-        if not resource_transport.position() == destination.position:
-            raise RuntimeError(
-                'we are trying to unload while not at destination'
+        position: Position = resource_transport.position()
+
+        if not position == destination.position:
+            logger.debug(
+                "resource_transport.handle_unloading.not_at_destination",
+                resource_transport=resource_transport,
+                position=position,
+                destination=destination,
             )
+
+            raise RuntimeError("we are trying to unload while not at destination")
             return
 
         if not destination.inventory.can_receive_resources():
             logger.debug(
-                'handle_unloading:cannot_receive_resources',
+                "handle_unloading:cannot_receive_resources",
                 source=resource_transport.source,
                 destination=destination,
                 owner=resource_transport.owner,
@@ -366,7 +402,6 @@ class ResourceTransportSystem:
 
             resource_transport.destination = None
             return
-        
 
         resources = resource_transport.common_route_resources()
 
@@ -394,7 +429,7 @@ class ResourceTransportSystem:
             storage.add(item)
 
         logger.debug(
-            'handle_unloading',
+            "handle_unloading",
             accepted=accepted,
             rejected=rejected,
             destination=destination,
@@ -409,7 +444,7 @@ class ResourceTransportSystem:
 
         if len(rejected) == resources and len(accepted) == 0:
             logger.debug(
-                'handle_unloading:nothing_accepted',
+                "handle_unloading:nothing_accepted",
                 destination=destination,
                 owner=resource_transport.owner,
                 component=resource_transport,
@@ -423,6 +458,6 @@ class ResourceTransportSystem:
             source = resource_transport.source()
 
             if source:
-                resource_transport.owner.travel.start(source)
+                travel.start(source)
             else:
                 resource_transport.source = None

@@ -1,7 +1,5 @@
 from settlers.engine.entities.resources import Resource
-from settlers.engine.components.harvesting import (
-    Harvestable
-)
+from settlers.engine.components.harvesting import Harvestable
 from settlers.entities.renderable import Renderable
 
 
@@ -14,11 +12,11 @@ class StoneSlab(Resource):
 
 
 class StoneQuarry(Resource):
-    __slots__ = ('quantity')
+    __slots__ = "quantity"
 
     components = [
-        (Harvestable, 'quantity', StoneSlab, 4, 1, 2),
-        (Renderable, 'stone_quarry')
+        (Harvestable, "quantity", StoneSlab, 4, 1, 2),
+        (Renderable, "stone_quarry"),
     ]
 
     def __init__(self, quantity: int):

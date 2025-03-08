@@ -12,43 +12,35 @@ from settlers.entities.map import Map
 from settlers.entities.renderable import Renderable
 from settlers.game.setup import setup
 
-logger = structlog.get_logger('game.manager')
+logger = structlog.get_logger("game.manager")
 
 
 class RenderSystem:
     component_types = [Renderable, Position]
 
     sprites = {
-        'villager': [
-            'medieval_rts/unit/villager_man_blue.png',
-            'medieval_rts/unit/villager_man_green.png',
-            'medieval_rts/unit/villager_man_grey.png',
-            'medieval_rts/unit/villager_man_red.png',
-            'medieval_rts/unit/villager_woman_blue.png',
-            'medieval_rts/unit/villager_woman_green.png',
-            'medieval_rts/unit/villager_woman_grey.png',
-            'medieval_rts/unit/villager_woman_red.png',
+        "villager": [
+            "medieval_rts/unit/villager_man_blue.png",
+            "medieval_rts/unit/villager_man_green.png",
+            "medieval_rts/unit/villager_man_grey.png",
+            "medieval_rts/unit/villager_man_red.png",
+            "medieval_rts/unit/villager_woman_blue.png",
+            "medieval_rts/unit/villager_woman_green.png",
+            "medieval_rts/unit/villager_woman_grey.png",
+            "medieval_rts/unit/villager_woman_red.png",
         ],
-        'building_sawmill': [
-            'hexagon_tiles/tiles/medieval/medieval_lumber.png'
+        "building_sawmill": ["hexagon_tiles/tiles/medieval/medieval_lumber.png"],
+        "building_house": ["hexagon_tiles/tiles/medieval/medieval_smallCastle.png"],
+        "building_warehouse": ["hexagon_tiles/tiles/medieval/medieval_cabin.png"],
+        "building_stone_workshop": ["hexagon_tiles/tiles/medieval/medieval_house.png"],
+        "building_construction": ["hexagon_tiles/tiles/medieval/medieval_ruins.png"],
+        "tree": ["hexagon_tiles/objects/treePine_large.png"],
+        "stone_quarry": [
+            "hexagon_tiles/objects/rockGrey_medium1.png",
+            "hexagon_tiles/objects/rockGrey_medium2.png",
+            "hexagon_tiles/objects/rockGrey_medium3.png",
         ],
-        'building_house': [
-            'hexagon_tiles/tiles/medieval/medieval_smallCastle.png'
-        ],
-        'building_warehouse': [
-            'hexagon_tiles/tiles/medieval/medieval_cabin.png'
-        ],
-        'building_stone_workshop': [
-            'hexagon_tiles/tiles/medieval/medieval_house.png'
-        ],
-        'building_construction': ['hexagon_tiles/tiles/medieval/medieval_ruins.png'],
-        'tree': ['hexagon_tiles/objects/treePine_large.png'],
-        'stone_quarry': [
-            'hexagon_tiles/objects/rockGrey_medium1.png',
-            'hexagon_tiles/objects/rockGrey_medium2.png',
-            'hexagon_tiles/objects/rockGrey_medium3.png'
-        ],
-        'tile': ['hexagon_tiles/tiles/terrain/grass/grass_05.png']
+        "tile": ["hexagon_tiles/tiles/terrain/grass/grass_05.png"],
     }
 
     def __init__(self, renderer: sdl2.ext.Renderer, sprite_factory):
@@ -56,21 +48,16 @@ class RenderSystem:
         self.sprite_factory = sprite_factory
 
     def load_sprite(self, sprite_file: str):
-        path = pathlib.Path(__file__).parent / 'resources' / 'png'
+        path = pathlib.Path(__file__).parent / "resources" / "png"
         path = path / sprite_file
 
         return self.sprite_factory.from_image(str(path))
 
     def process(self, ticks: int, renderables: list):
-        if not hasattr(self, '_previous_ticks'):
+        if not hasattr(self, "_previous_ticks"):
             self._previous_ticks = ticks
 
-        z_sprites: list[list] = [
-            [],
-            [],
-            [],
-            []
-        ]
+        z_sprites: list[list] = [[], [], [], []]
 
         for renderable, position in renderables:
             if not renderable.sprite:
@@ -83,28 +70,18 @@ class RenderSystem:
 
             z_sprites[renderable.z].append(renderable.sprite)
 
-        self.renderer.render(
-            sprites=list(itertools.chain.from_iterable(z_sprites))
-        )
+        self.renderer.render(sprites=list(itertools.chain.from_iterable(z_sprites)))
 
 
 class Manager:
     def __init__(self):
         sdl2.ext.init()
 
-
         sdl2.SDL_SetHint(sdl2.SDL_HINT_RENDER_SCALE_QUALITY, b"1")
 
-        window_flags = (
-            sdl2.video.SDL_WINDOW_BORDERLESS &
-            sdl2.video.SDL_WINDOW_SHOWN
-        )
+        window_flags = sdl2.video.SDL_WINDOW_BORDERLESS & sdl2.video.SDL_WINDOW_SHOWN
 
-        self.window = sdl2.ext.Window(
-            "Settlers",
-            size=(800, 600),
-            flags=window_flags
-        )
+        self.window = sdl2.ext.Window("Settlers", size=(800, 600), flags=window_flags)
 
         self.renderer = sdl2.ext.Renderer(self.window)
 
@@ -122,6 +99,7 @@ class Manager:
     def setup_signals(self):
         def wrap_terminate(signum, stackframe):
             self.terminate(signum, stackframe)
+
         signal.signal(signal.SIGINT, wrap_terminate)
         signal.signal(signal.SIGTERM, wrap_terminate)
 
@@ -135,10 +113,7 @@ class Manager:
 
         self.world.initialize()
 
-        self.render_system = RenderSystem(
-            self.sprite_renderer,
-            self.sprite_factory
-        )
+        self.render_system = RenderSystem(self.sprite_renderer, self.sprite_factory)
 
         self.map = Map()
         self.map.generate()
@@ -154,11 +129,13 @@ class Manager:
         tiles = []
         for tile in itertools.chain.from_iterable(self.map.tiles):
             tile.initialize()
-            tiles.append([
-                component
-                for component in tile.components
-                if component.__class__ in self.render_system.component_types
-            ])
+            tiles.append(
+                [
+                    component
+                    for component in tile.components
+                    if component.__class__ in self.render_system.component_types
+                ]
+            )
 
         while self.running:
             start = sdl2.SDL_GetTicks()
@@ -172,9 +149,9 @@ class Manager:
             world.process(start)
 
             renderables = list(tiles)
-            renderables.extend(world.components_matching(
-                self.render_system.component_types
-            ))
+            renderables.extend(
+                world.components_matching(self.render_system.component_types)
+            )
             self.render_system.process(start, renderables)
 
             last = sdl2.SDL_GetTicks()

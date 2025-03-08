@@ -6,14 +6,14 @@ from settlers.engine.entities.resources import Resource
 from settlers.engine.components import Component
 from settlers.engine.components.worker import Worker
 
-STATE_NEW = 'new'
-STATE_IN_PROGRESS = 'in_progress'
-STATE_COMPLETED = 'completed'
+STATE_NEW = "new"
+STATE_IN_PROGRESS = "in_progress"
+STATE_COMPLETED = "completed"
 
-BUILDER_STATE_IDLE = 'idle'
-BUILDER_STATE_WORKING = 'working'
+BUILDER_STATE_IDLE = "idle"
+BUILDER_STATE_WORKING = "working"
 
-logger = structlog.get_logger('engine.construction')
+logger = structlog.get_logger("engine.construction")
 
 ComponentsType = List[Tuple[type, list, int]]
 ConstructionResourcesType = Dict[Type[Resource], int]
@@ -21,20 +21,26 @@ ConstructionResourcesType = Dict[Type[Resource], int]
 
 class ConstructionSpec:
     __slots__ = (
-        'components', 'construction_resources',
-        'construction_abilities', 'construction_ticks',
-        'max_workers', 'name', 'renderable_type', 'storages'
+        "components",
+        "construction_resources",
+        "construction_abilities",
+        "construction_ticks",
+        "max_workers",
+        "name",
+        "renderable_type",
+        "storages",
     )
 
     def __init__(
-        self, components: ComponentsType,
+        self,
+        components: ComponentsType,
         construction_abilities: list,
         construction_resources: ConstructionResourcesType,
         construction_ticks: int,
         max_workers: int,
         name: str,
         renderable_type: str,
-        storages: dict
+        storages: dict,
     ) -> None:
         self.components: ComponentsType = components
         self.construction_abilities: set = set(construction_abilities)
@@ -47,16 +53,16 @@ class ConstructionSpec:
 
     def __del__(self):
         logger.debug(
-            '__del__',
+            "__del__",
             spec=self,
             klass=self.__class__.__name__,
         )
 
 
 class ConstructionWorker(Worker):
-    __slots__ = ('abilities')
+    __slots__ = "abilities"
 
-    exposed_as = 'construction'
+    exposed_as = "construction"
 
     _target_components: List[Type[Component]] = []
 
@@ -73,21 +79,15 @@ class ConstructionWorker(Worker):
 
     def __repr__(self) -> str:
         return "<{owner}#{component} {id}>".format(
-            owner=self.owner,
-            component=self.__class__.__name__,
-            id=hex(id(self))
+            owner=self.owner, component=self.__class__.__name__, id=hex(id(self))
         )
 
-class Construction(Component):
-    __slots__ = (
-        'spec',
-        'state',
-        'ticks',
-        'workers'
-    )
 
-    exposed_as = 'construction'
-    exposed_methods = ('add_builder', 'can_add_worker', 'required_abilities')
+class Construction(Component):
+    __slots__ = ("spec", "state", "ticks", "workers")
+
+    exposed_as = "construction"
+    exposed_methods = ("add_builder", "can_add_worker", "required_abilities")
 
     def __init__(self, owner: Entity, spec: ConstructionSpec) -> None:
         super().__init__(owner)
@@ -104,7 +104,7 @@ class Construction(Component):
             possible_abilities = self.spec.construction_abilities
 
             if not worker.abilities.intersection(possible_abilities):
-                raise RuntimeError('cannot build')
+                raise RuntimeError("cannot build")
 
         self.workers.append(weakref.ref(worker))
         return True
@@ -126,38 +126,34 @@ class Construction(Component):
             return
 
         logger.debug(
-            'state_change',
+            "state_change",
             owner=self.owner,
             component=self.__class__.__name__,
             old_state=self.state,
-            new_state=new_state
+            new_state=new_state,
         )
         self.state = new_state
 
     def __del__(self):
         logger.debug(
-            '__del__',
+            "__del__",
             owner=self.owner,
             component=self.__class__.__name__,
         )
 
     def __repr__(self) -> str:
         return "<{owner}#{component} {id}>".format(
-            owner=self.owner,
-            component=self.__class__.__name__,
-            id=hex(id(self))
+            owner=self.owner, component=self.__class__.__name__, id=hex(id(self))
         )
 
 
 class ConstructionSystem:
-    component_types = (
-        Construction,
-    )
+    component_types = (Construction,)
 
     def __init__(self) -> None:
         self._last_checked_new: int = 0
 
-    def process(self, tick: int,  constructions: List[Construction]) -> None:
+    def process(self, tick: int, constructions: List[Construction]) -> None:
         self._last_checked_new = self._last_checked_new or 0
 
         for construction in constructions:
@@ -169,7 +165,7 @@ class ConstructionSystem:
 
                 if not construction.workers:
                     logger.debug(
-                        'process:no_workers',
+                        "process:no_workers",
                         system=self.__class__.__name__,
                         construction=construction,
                     )
@@ -188,11 +184,11 @@ class ConstructionSystem:
                 construction.ticks += len(construction.workers)
 
                 logger.debug(
-                    'process',
+                    "process",
                     ticks=construction.ticks,
                     total_ticks=construction.spec.construction_ticks,
                     system=self.__class__.__name__,
-                    construction=construction
+                    construction=construction,
                 )
 
                 if not construction.is_completed():
@@ -207,9 +203,9 @@ class ConstructionSystem:
     def can_build(self, construction: Construction) -> bool:
         if not construction.workers:
             logger.info(
-                'can_build:no_workers',
+                "can_build:no_workers",
                 building=construction.owner,
-                system=self.__class__.__name__
+                system=self.__class__.__name__,
             )
             return False
 
@@ -217,10 +213,10 @@ class ConstructionSystem:
             storage = construction.owner.storages[resource]
             if not storage.is_full():
                 logger.info(
-                    'can_build:missing_resource',
+                    "can_build:missing_resource",
                     building=construction.owner,
                     system=self.__class__.__name__,
-                    resource=resource 
+                    resource=resource,
                 )
                 return False
 
@@ -228,7 +224,7 @@ class ConstructionSystem:
 
     def complete(self, building: Construction) -> None:
         logger.debug(
-            'complete',
+            "complete",
             building=building.owner,
             system=self.__class__.__name__,
         )

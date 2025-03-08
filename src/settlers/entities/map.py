@@ -5,10 +5,9 @@ from settlers.entities.renderable import Renderable
 
 
 class MapTile(Entity):
-    __slots__ = ['column', 'row', 'sprite']
+    __slots__ = ["column", "row", "sprite"]
 
-    components = [
-    ]
+    components = []
 
     def __init__(self, row, column):
         self.sprite = None
@@ -18,13 +17,13 @@ class MapTile(Entity):
         super().__init__()
 
     def initialize(self):
-        self.components.add((Renderable, 'tile', 0))
+        self.components.add((Renderable, "tile", 0))
         self.components.add((Position, self.row * 120, self.column * 140))
 
         super().initialize()
 
     def __repr__(self):
-        position = getattr(self, 'position', None)
+        position = getattr(self, "position", None)
         if not position:
             position = (self.row * 120, self.column * 140)
 

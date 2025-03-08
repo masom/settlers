@@ -7,3 +7,6 @@ class Entity:
 
     def initialize(self) -> None:
         self.components.initialize()
+
+    def id(self) -> int:
+        return id(self)

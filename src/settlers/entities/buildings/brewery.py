@@ -1,25 +1,18 @@
 from typing import Dict, List, Type
 from settlers.engine.components import Component
-from settlers.engine.components.construction import (
-    ConstructionSpec
-)
+from settlers.engine.components.construction import ConstructionSpec
 from settlers.engine.components.factory import (
-    Factory, Pipeline, PipelineInput, PipelineOutput
+    Factory,
+    Pipeline,
+    PipelineInput,
+    PipelineOutput,
 )
 from settlers.engine.entities.resources import Resource
 from settlers.engine.entities.position import Position
-from settlers.entities.buildings.construction_site import (
-    build_construction_site
-)
-from settlers.entities.resources.farming import (
-    Beer, Bread, Ham, Soup, Vegetables
-)
-from settlers.entities.resources.stone import (
-    Stone
-)
-from settlers.entities.resources.tree import (
-    Lumber
-)
+from settlers.entities.buildings.construction_site import build_construction_site
+from settlers.entities.resources.farming import Beer, Bread, Ham, Soup, Vegetables
+from settlers.entities.resources.stone import Stone
+from settlers.entities.resources.tree import Lumber
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
 from settlers.entities.buildings import Building
 
@@ -30,10 +23,7 @@ def build_brewery(name: str, components: List[Component]) -> Building:
     storages = brewery_storages()
     components = components + brewery_components(storages)
 
-    brewery = Building(
-        "{name}'s brewery".format(name=name),
-        storages
-    )
+    brewery = Building("{name}'s brewery".format(name=name), storages)
 
     for component in components:
         brewery.components.add(component)
@@ -42,31 +32,19 @@ def build_brewery(name: str, components: List[Component]) -> Building:
 
 
 def brewery_components(storages: StoragesType) -> list:
-    return [
-        (Factory, brewery_pipelines(storages), 1)
-    ]
+    return [(Factory, brewery_pipelines(storages), 1)]
 
 
 def brewery_storages() -> StoragesType:
-    return {
-        Beer: ResourceStorage(False, True, 30)
-    }
+    return {Beer: ResourceStorage(False, True, 30)}
 
 
 def brewery_pipelines(storages: StoragesType) -> List[Pipeline]:
-    return [
-        Pipeline(
-            [],
-            PipelineOutput(1, Beer, storages[Beer]),
-            10
-        )
-    ]
+    return [Pipeline([], PipelineOutput(1, Beer, storages[Beer]), 10)]
 
 
 def build_brewery_construction_site(
-    name: str,
-    components: List[Component],
-    position: Position
+    name: str, components: List[Component], position: Position
 ) -> Building:
     storages = brewery_storages()
     components = brewery_components(storages)
@@ -74,14 +52,11 @@ def build_brewery_construction_site(
     spec = ConstructionSpec(
         components,
         [],
-        {
-            Lumber: 10,
-            Stone: 10
-        },
+        {Lumber: 10, Stone: 10},
         4,
         1,
         "{name}'s brewery".format(name=name),
-        storages
+        storages,
     )
 
     return build_construction_site(spec, [position])
@@ -96,10 +71,7 @@ def build_tavern(name: str, components: List[Component]) -> Building:
     #     Soup: tavern_storages[Soup]
     # }
 
-    tavern = Building(
-        "{name}'s tavern".format(name=name),
-        storages
-    )
+    tavern = Building("{name}'s tavern".format(name=name), storages)
 
     components = components + tavern_components(storages)
     for component in components:
@@ -123,7 +95,7 @@ def tavern_pipelines(storages: StoragesType) -> List[Pipeline]:
                 PipelineInput(1, Vegetables, storages[Vegetables]),
             ],
             PipelineOutput(5, Soup, storages[Soup]),
-            5
+            5,
         )
     ]
 
@@ -139,8 +111,7 @@ def tavern_storages() -> List[StoragesType]:
 
 
 def build_tavern_construction_site(
-    name: str, components: List[Component],
-    position: Position
+    name: str, components: List[Component], position: Position
 ) -> Building:
     storages = tavern_storages()
     components = tavern_components(storages)
@@ -148,14 +119,11 @@ def build_tavern_construction_site(
     spec = ConstructionSpec(
         components,
         [],
-        {
-            Lumber: 10,
-            Stone: 10
-        },
+        {Lumber: 10, Stone: 10},
         4,
         1,
         "{name}'s tavern".format(name=name),
-        storages
+        storages,
     )
 
     return build_construction_site(spec, [position])

@@ -1,27 +1,21 @@
 from typing import List
 
-from settlers.engine.components.construction import (
-    ConstructionSpec
-)
+from settlers.engine.components.construction import ConstructionSpec
 from settlers.engine.components.factory import (
-    Factory, Pipeline, PipelineInput, PipelineOutput
+    Factory,
+    Pipeline,
+    PipelineInput,
+    PipelineOutput,
 )
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
 
-from settlers.entities.resources.tree import (
-    TreeLog, Lumber
-)
+from settlers.entities.resources.tree import TreeLog, Lumber
 
 from settlers.entities.buildings import Building
-from settlers.entities.buildings.construction_site import (
-    build_construction_site
-)
+from settlers.entities.buildings.construction_site import build_construction_site
 
 
-def build_sawmill(
-    name: str,
-    components: List[tuple]
-) -> Building:
+def build_sawmill(name: str, components: List[tuple]) -> Building:
     sawmill_storages = {
         TreeLog: ResourceStorage(True, False, 10),
         Lumber: ResourceStorage(False, True, 50),
@@ -29,18 +23,16 @@ def build_sawmill(
 
     sawmill_pipelines: List[Pipeline] = [
         Pipeline(
-            [
-                PipelineInput(1, TreeLog, sawmill_storages[TreeLog])
-            ],
+            [PipelineInput(1, TreeLog, sawmill_storages[TreeLog])],
             PipelineOutput(5, Lumber, sawmill_storages[Lumber]),
-            2
+            2,
         )
     ]
 
     sawmill = Building(
         "{name}'s Sawmill".format(name=name),
         sawmill_storages,
-        renderable_type='building_sawmill'
+        renderable_type="building_sawmill",
     )
 
     for component in components:
@@ -52,9 +44,7 @@ def build_sawmill(
 
 
 def build_sawmill_construction_site(
-    name: str,
-    components: List[tuple],
-    position: tuple
+    name: str, components: List[tuple], position: tuple
 ) -> Building:
     sawmill_storages = {
         TreeLog: ResourceStorage(True, False, 10),
@@ -63,11 +53,9 @@ def build_sawmill_construction_site(
 
     sawmill_pipelines = [
         Pipeline(
-            [
-                PipelineInput(1, TreeLog, sawmill_storages[TreeLog])
-            ],
+            [PipelineInput(1, TreeLog, sawmill_storages[TreeLog])],
             PipelineOutput(5, Lumber, sawmill_storages[Lumber]),
-            2
+            2,
         )
     ]
 
@@ -75,16 +63,15 @@ def build_sawmill_construction_site(
 
     spec = ConstructionSpec(
         components,
-        [
-        ],
+        [],
         {
             Lumber: 10,
         },
         4,
         1,
         "{name}'s Sawmill".format(name=name),
-        'building_sawmill',
-        sawmill_storages
+        "building_sawmill",
+        sawmill_storages,
     )
 
     return build_construction_site(spec, [], position)

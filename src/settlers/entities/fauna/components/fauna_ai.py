@@ -5,11 +5,9 @@ import structlog
 from collections import defaultdict
 from typing import Callable, List, Optional
 
-from settlers.engine.components import (
-    Component, ComponentProxy, ComponentManager
-)
+from settlers.engine.components import Component, ComponentProxy, ComponentManager
 
-logger = structlog.get_logger('game.fauna_ai')
+logger = structlog.get_logger("game.fauna_ai")
 
 STATE_IDLE = "idle"
 STATE_WANDERING = "wandering"
@@ -18,16 +16,19 @@ STATE_FLEEING = "fleeing"
 STATE_ATTACKING = "attacking"
 STATE_DEAD = "dead"
 
+
 class Prey(Component):
     pass
+
 
 class Predator(Component):
     pass
 
-class FaunaAi(Component):
-    __slots__ = ('_available_tasks', 'state', 'task')
 
-    def __init__(self, owner, task = Prey) -> None:
+class FaunaAi(Component):
+    __slots__ = ("_available_tasks", "state", "task")
+
+    def __init__(self, owner, task=Prey) -> None:
         super().__init__(owner)
         self.state = STATE_IDLE
         self.task = task
@@ -44,7 +45,7 @@ class FaunaAi(Component):
         return self._available_tasks
 
     def on_task_ended(self, component: Component) -> None:
-        logger.info('on_task_ended', component=component)
+        logger.info("on_task_ended", component=component)
         self.task = None
         self.state_change(STATE_IDLE)
 
@@ -53,7 +54,7 @@ class FaunaAi(Component):
             return
 
         logger.debug(
-            'state_change',
+            "state_change",
             owner=self.owner,
             component=self,
             old_state=self.state,
@@ -64,10 +65,8 @@ class FaunaAi(Component):
         self.state = new_state
 
     def __repr__(self) -> str:
-        return "<{self} {id}>".format(
-            self=self.__class__.__name__,
-            id=hex(id(self))
-        )
+        return "<{self} {id}>".format(self=self.__class__.__name__, id=hex(id(self)))
+
 
 class FaunaAiSystem:
     component_types = [FaunaAi]
@@ -92,9 +91,9 @@ class FaunaAiSystem:
             return
         if entity.task is Predator:
             return
-        
+
         if entity.task is None:
-            logger.error('handle_idle', entity=entity, task=entity.task)
+            logger.error("handle_idle", entity=entity, task=entity.task)
             raise ValueError("Task is None")
 
     def handle_sleeping(self, entity: FaunaAi):
@@ -110,7 +109,7 @@ class FaunaAiSystem:
         self.current_tick = tick
 
         if self.current_tick % 10 != 0:
-           return
+            return
 
         for animal in animals:
             if animal.state == STATE_DEAD:

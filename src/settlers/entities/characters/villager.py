@@ -6,30 +6,23 @@ from collections import defaultdict
 from typing import List, Optional
 
 from settlers.engine.entities.entity import Entity
-from settlers.engine.components.movement import (
-    Travel, Velocity
-)
+from settlers.engine.components.movement import Travel, Velocity
 from settlers.engine.entities.resources.resource_storage import (
-    ResourceStorage, ResourceStoragesType
+    ResourceStorage,
+    ResourceStoragesType,
 )
 
-from settlers.entities.characters.components.villager_ai_system import (
-    VillagerAi
-)
+from settlers.entities.characters.components.villager_ai_system import VillagerAi
 from settlers.entities.renderable import Renderable
 
 from settlers.engine.components.movement import ResourceTransport
 from settlers.engine.components.harvesting import Harvester
 
-class Villager(Entity):
-    __slots__ = ('name', 'storages')
 
-    components = [
-        VillagerAi,
-        Travel,
-        (Velocity, 2),
-        (Renderable, 'villager', 2)
-    ]
+class Villager(Entity):
+    __slots__ = ("name", "storages")
+
+    components = [VillagerAi, Travel, (Velocity, 2), (Renderable, "villager", 2)]
 
     def __init__(self, name: Optional[str] = None):
         super().__init__()
@@ -41,7 +34,6 @@ class Villager(Entity):
             self._resource_storage_factory
         )
         self.name = name
-
 
     def on_spawn(self, components: List):
         self.initialize()

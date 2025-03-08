@@ -2,21 +2,24 @@ import structlog
 import weakref
 from typing import List, Optional, Type, Callable
 
-from settlers.engine.components import Component
+from settlers.engine.components import Component, ComponentManager
 from settlers.engine.components.worker import Worker
+from settlers.engine.components.movement import Travel
 from settlers.engine.entities.resources import Resource
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
+from settlers.engine.entities.entity import Entity
+from settlers.engine.entities.position import Position
 
 
-STATE_IDLE = 'idle'
-STATE_ACTIVE = 'active'
+STATE_IDLE = "idle"
+STATE_ACTIVE = "active"
 
 
-logger = structlog.get_logger('engine.factory')
+logger = structlog.get_logger("engine.factory")
 
 
 class PipelineInput:
-    __slots__ = ('quantity', 'resource', '_storage')
+    __slots__ = ("quantity", "resource", "_storage")
 
     def __init__(
         self, quantity: int, resource: Type[Resource], storage: ResourceStorage
@@ -39,7 +42,7 @@ class PipelineInput:
 
 
 class PipelineOutput:
-    __slots__ = ('quantity', 'storage', 'resource')
+    __slots__ = ("quantity", "storage", "resource")
 
     def __init__(
         self, quantity: int, resource: Type[Resource], storage: ResourceStorage
@@ -50,15 +53,10 @@ class PipelineOutput:
 
 
 class Pipeline:
-    __slots__ = (
-        'inputs', 'output',
-        'reserved', 'ticks_per_cycle',
-        '__weakref__'
-    )
+    __slots__ = ("inputs", "output", "reserved", "ticks_per_cycle", "__weakref__")
 
     def __init__(
-        self, inputs: List[PipelineInput], output: PipelineOutput,
-        ticks_per_cycle: int
+        self, inputs: List[PipelineInput], output: PipelineOutput, ticks_per_cycle: int
     ):
         self.inputs: List[PipelineInput] = inputs
         self.output: PipelineOutput = output
@@ -114,14 +112,17 @@ class FactoryWorker(Worker):
 
 class Factory(Component):
     __slots__ = (
-        'active', 'cycles', 'max_workers', 'pipelines', 'state', 'ticks',
-        'workers'
+        "active",
+        "cycles",
+        "max_workers",
+        "pipelines",
+        "state",
+        "ticks",
+        "workers",
     )
 
-    exposed_as = 'factory'
-    exposed_methods = (
-        'add_worker', 'can_add_worker', 'remote_worker', 'start', 'stop'
-    )
+    exposed_as = "factory"
+    exposed_methods = ("add_worker", "can_add_worker", "remote_worker", "start", "stop")
 
     def __init__(self, owner, pipelines: List[Pipeline], max_workers: int):
         super().__init__(owner)
@@ -137,7 +138,7 @@ class Factory(Component):
             return False
 
         logger.debug(
-            'add_worker',
+            "add_worker",
             owner=self.owner,
             component=self.__class__.__name__,
             worker=worker,
@@ -165,7 +166,7 @@ class Factory(Component):
 
             if resolved_reference == worker:
                 logger.debug(
-                    'remove_worker',
+                    "remove_worker",
                     component=self.__class__.__name__,
                     worker=worker,
                 )
@@ -186,11 +187,11 @@ class Factory(Component):
             return
 
         logger.debug(
-            'state_change',
+            "state_change",
             owner=self.owner,
             component=self.__class__.__name__,
             old_state=self.state,
-            new_state=new_state
+            new_state=new_state,
         )
 
         self.state = new_state
@@ -252,14 +253,32 @@ class FactorySystem:
                 worker.progress = 0
 
                 if not worker.owner.position == factory.position():
-                    destination = worker.owner.travel.destination
-                    if destination:
-                        if destination().position == factory.position():
-                            continue
-                        else:
-                            raise RuntimeError('we got a problem')
+                    worker_travel: Optional[Travel] = ComponentManager.fetch(
+                        worker.owner_id(), Travel
+                    )
+                    if not worker_travel:
+                        logger.debug(
+                            "process_workers.no_travel_component",
+                            worker=worker,
+                        )
+                        import pdb
 
-                    worker.owner.travel.start(factory.owner)
+                        pdb.set_trace()
+                        raise
+
+                    destination: Optional[weakref.ReferenceType[Entity]] = worker_travel.destination  # type: ignore
+                    if destination:
+                        destination_entity: Optional[Entity] = destination()
+                        if destination_entity:
+                            if destination_entity.id() == factory.owner_id():
+                                continue
+
+                            import pdb
+
+                            pdb.set_trace()
+                            raise RuntimeError("we got a problem")
+
+                    worker_travel.start(factory.owner)
                 continue
 
             if not worker.is_active():
@@ -283,7 +302,7 @@ class FactorySystem:
         outputs: list = pipeline.build_outputs()
 
         logger.debug(
-            'process_workers:work_completed',
+            "process_workers:work_completed",
             output=outputs[0],
             quantity=len(outputs),
             worker=worker,
@@ -302,9 +321,7 @@ class FactorySystem:
         worker.state_change(STATE_IDLE)
 
     def activate_pipeline_on_worker(self, factory: Factory, worker) -> bool:
-        pipeline: Optional[Pipeline] = self.available_pipeline_for_factory(
-            factory
-        )
+        pipeline: Optional[Pipeline] = self.available_pipeline_for_factory(factory)
 
         if not pipeline:
             return False
@@ -312,11 +329,11 @@ class FactorySystem:
         pipeline.reserved = True
         pipeline.consume_input()
 
-        worker.pipeline = pipeline 
+        worker.pipeline = pipeline
         worker.state_change(STATE_ACTIVE)
 
         logger.info(
-            'activate_pipeline_on_worker:pipeline_activated',
+            "activate_pipeline_on_worker:pipeline_activated",
             factory=factory,
             worker=worker,
             pipeline=pipeline,
@@ -325,9 +342,7 @@ class FactorySystem:
 
         return True
 
-    def available_pipeline_for_factory(
-        self, factory: Factory
-    ) -> Optional[Pipeline]:
+    def available_pipeline_for_factory(self, factory: Factory) -> Optional[Pipeline]:
         for pipeline in factory.pipelines:
             if not pipeline.is_available():
                 continue

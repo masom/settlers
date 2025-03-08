@@ -1,11 +1,11 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from settlers.engine.entities.entity import Entity
 from settlers.engine.components import Component, ComponentManager
 
 
 class World:
-    __slots__ = ('entities', 'map', 'random_seed', 'systems')
+    __slots__ = ("entities", "map", "random_seed", "systems")
 
     def __init__(self, random_seed: Optional[int] = None, map=None) -> None:
         self.entities: list[Entity] = []
@@ -24,12 +24,14 @@ class World:
 
     def process(self, tick: int) -> None:
         for system in self.systems:
-            components = self.components_matching(system.component_types)
+            components: List[Component] = self.components_matching(
+                system.component_types
+            )
 
             if not components:
                 continue
 
-            if hasattr(system, 'should_process'):
+            if hasattr(system, "should_process"):
                 if not system.should_process(tick):
                     continue
 
@@ -40,9 +42,9 @@ class World:
         len_wants = len(wants)
         entities = ComponentManager.entities_matching(wants)
 
-        method_name = 'extend'
+        method_name = "extend"
         if len_wants > 1:
-            method_name = 'append'
+            method_name = "append"
 
         method = getattr(components, method_name)
 

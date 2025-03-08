@@ -2,24 +2,29 @@ import structlog
 
 from . import Component
 
-logger = structlog.get_logger('factory')
+logger = structlog.get_logger("factory")
 
 
 class Generative(Component):
     __slots__ = [
-        'cycles',
-        'increase_per_cycle',
-        'max_cycles',
-        'max_value',
-        'target_attr',
-        'ticks',
-        'ticks_per_cycle',
-        'unlimited',
+        "cycles",
+        "increase_per_cycle",
+        "max_cycles",
+        "max_value",
+        "target_attr",
+        "ticks",
+        "ticks_per_cycle",
+        "unlimited",
     ]
 
     def __init__(
-        self, owner, target_attr, max_cycles, ticks_per_cycle,
-        increase_per_cycle, max_value
+        self,
+        owner,
+        target_attr,
+        max_cycles,
+        ticks_per_cycle,
+        increase_per_cycle,
+        max_value,
     ):
         super().__init__(owner)
 
@@ -45,7 +50,7 @@ class GenerativeSystem:
             if not generator.unlimited:
                 if generator.cycles > generator.max_cycles:
                     logger.debug(
-                        'process_generator_max_reached',
+                        "process_generator_max_reached",
                         cycles=generator.cycles,
                         max_cycles=generator.max_cycles,
                         generator=generator,

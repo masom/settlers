@@ -3,61 +3,35 @@ from collections import defaultdict
 
 from settlers.engine.world import World
 
-from settlers.engine.components.construction import (
-    ConstructionSystem
-)
-from settlers.engine.components.factory import (
-    FactorySystem
-)
-from settlers.engine.components.generative import (
-    GenerativeSystem
-)
+from settlers.engine.components.construction import ConstructionSystem
+from settlers.engine.components.factory import FactorySystem
+from settlers.engine.components.generative import GenerativeSystem
 from settlers.engine.components.harvesting import (
     HarvesterSystem,
 )
-from settlers.engine.components.movement import (
-    ResourceTransportSystem, TravelSystem
-)
-from settlers.engine.components.spawner import (
-    SpawnerSystem, SpawnerWorker
-)
+from settlers.engine.components.movement import ResourceTransportSystem, TravelSystem
+from settlers.engine.components.spawner import SpawnerSystem, SpawnerWorker
 from settlers.engine.entities.position import Position
 
-from settlers.engine.components.movement import (
-    ResourceTransport
-)
-from settlers.engine.components.construction import (
-    ConstructionWorker
-)
-from settlers.engine.components.factory import (
-    FactoryWorker
-)
+from settlers.engine.components.movement import ResourceTransport
+from settlers.engine.components.construction import ConstructionWorker
+from settlers.engine.components.factory import FactoryWorker
 from settlers.engine.components.harvesting import Harvester
-from settlers.entities.resources.stone import (
-    StoneQuarry
-)
-from settlers.entities.resources.tree import (
-    Tree
-)
-from settlers.entities.buildings.sawmill import (
-    build_sawmill
-)
+from settlers.entities.resources.stone import StoneQuarry
+from settlers.entities.resources.tree import Tree
+from settlers.entities.buildings.sawmill import build_sawmill
 from settlers.entities.buildings.stone_workshop import (
-    build_stone_workshop_construction_site
+    build_stone_workshop_construction_site,
 )
-from settlers.entities.buildings.warehouse import (
-    build_warehouse_construction_site
-)
+from settlers.entities.buildings.warehouse import build_warehouse_construction_site
 from settlers.entities.buildings.house import build_house
 
-from settlers.entities.characters.components.villager_ai_system import (
-    VillagerAiSystem
-)
+from settlers.entities.characters.components.villager_ai_system import VillagerAiSystem
 from settlers.entities.characters.villager import Villager
 
 
 def setup(world: World, options: dict) -> None:
-    random.seed(world.random_seed) 
+    random.seed(world.random_seed)
 
     world.add_system(VillagerAiSystem(world))
     world.add_system(FactorySystem())
@@ -74,7 +48,7 @@ def setup(world: World, options: dict) -> None:
             (Position, random.randrange(400, 740), random.randrange(310, 540))
         )
         world.add_entity(t)
-    del(t)
+    del t
 
     for _ in range(5):
         q = StoneQuarry(25)
@@ -82,8 +56,8 @@ def setup(world: World, options: dict) -> None:
             (Position, random.randrange(400, 740), random.randrange(10, 300))
         )
         world.add_entity(q)
-    del(q)
-    
+    del q
+
     if options["with_low_pop"]:
         workforce_plan = {
             Harvester: 2,
@@ -103,7 +77,7 @@ def setup(world: World, options: dict) -> None:
             v = Villager()
 
             v.components.add(
-                #(Position, random.randrange(10, 780), random.randrange(10, 580))
+                # (Position, random.randrange(10, 780), random.randrange(10, 580))
                 (Position, 10 + i, 10 + i)
             )
 
@@ -117,42 +91,32 @@ def setup(world: World, options: dict) -> None:
             v.components.add(task_info)
 
             world.add_entity(v)
-        del(v)
-
+        del v
 
     if options["with_sawmill"]:
         world.add_entity(
             build_sawmill(
-                'Bob',
-                [
-                    (Position, random.randrange(10, 100), random.randrange(10, 100))
-                ]
+                "Bob",
+                [(Position, random.randrange(10, 100), random.randrange(10, 100))],
             )
         )
 
     if options["with_constructions"]:
         world.add_entity(
             build_stone_workshop_construction_site(
-                'Joseph',
+                "Joseph",
                 [],
-                (Position, random.randrange(150, 200), random.randrange(100, 200))
+                (Position, random.randrange(150, 200), random.randrange(100, 200)),
             )
         )
 
         world.add_entity(
             build_warehouse_construction_site(
-                'ACME',
+                "ACME",
                 [],
-                (Position, random.randrange(250, 300), random.randrange(250, 300))
+                (Position, random.randrange(250, 300), random.randrange(250, 300)),
             )
         )
 
     if options["with_house"]:
-        world.add_entity(
-            build_house(
-                'House Omega',
-                [
-                    (Position, 100, 300)
-                ]
-            )
-        )
+        world.add_entity(build_house("House Omega", [(Position, 100, 300)]))

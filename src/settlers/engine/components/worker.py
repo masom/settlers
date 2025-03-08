@@ -4,19 +4,17 @@ import weakref
 
 from . import Component
 
-STATE_IDLE: str = 'idle'
-STATE_ACTIVE: str = 'active'
+STATE_IDLE: str = "idle"
+STATE_ACTIVE: str = "active"
 
-logger = structlog.get_logger('engine.worker')
+logger = structlog.get_logger("engine.worker")
 
 
 class Worker(Component):
-    __slots__ = (
-        '_on_end_callbacks', 'pipeline', 'progress', 'state', 'workplace'
-    )
+    __slots__ = ("_on_end_callbacks", "pipeline", "progress", "state", "workplace")
 
-    exposed_as = 'work'
-    exposed_methods = ('on_end', 'start', 'stop')
+    exposed_as = "work"
+    exposed_methods = ("on_end", "start", "stop")
 
     def __init__(self, owner: object) -> None:
         super().__init__(owner)
@@ -48,11 +46,11 @@ class Worker(Component):
 
     def start(self, target: Component) -> bool:
         if self.workplace:
-            raise RuntimeError('already working')
+            raise RuntimeError("already working")
 
         if not target.can_add_worker():
             logger.debug(
-                'start_target_rejected',
+                "start_target_rejected",
                 target=target,
                 owner=self.owner,
                 component=self.__class__.__name__,
@@ -60,7 +58,7 @@ class Worker(Component):
             return False
 
         logger.debug(
-            'start_requested',
+            "start_requested",
             target=target,
             owner=self.owner,
             component=self.__class__.__name__,
@@ -77,7 +75,7 @@ class Worker(Component):
             return
 
         logger.debug(
-            'state_change',
+            "state_change",
             old_state=self.state,
             new_state=new_state,
             owner=self.owner,
@@ -86,7 +84,7 @@ class Worker(Component):
 
         self.state = new_state
 
-    def stop(self) -> None:
+    def stop(self, skip_idle_state=False) -> None:
         self.state_change(STATE_IDLE)
 
         for callback in self._on_end_callbacks:
@@ -100,7 +98,7 @@ class Worker(Component):
             self.workplace = None
 
         logger.info(
-            'stop',
+            "stop",
             owner=self.owner,
             component=self.__class__.__name__,
         )

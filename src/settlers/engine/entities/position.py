@@ -2,10 +2,10 @@ from ..components import Component
 
 
 class Position(Component):
-    __slots__ = ('x', 'y')
+    __slots__ = ("x", "y")
 
-    exposed_as = 'position'
-    exposed_methods = ('update')
+    exposed_as = "position"
+    exposed_methods = "update"
 
     def __init__(self, owner, x: int, y: int):
         super().__init__(owner)

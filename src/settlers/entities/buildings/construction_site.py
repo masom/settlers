@@ -2,18 +2,15 @@ from typing import List
 
 
 from settlers.entities.buildings import Building
-from settlers.engine.components.construction import (
-    Construction, ConstructionSpec
-)
+from settlers.engine.components.construction import Construction, ConstructionSpec
 from settlers.engine.entities.resources.resource_storage import (
-    ResourceStorage, ResourceStoragesType
+    ResourceStorage,
+    ResourceStoragesType,
 )
 
 
 def build_construction_site(
-    spec: ConstructionSpec,
-    components: List[tuple],
-    position: tuple
+    spec: ConstructionSpec, components: List[tuple], position: tuple
 ) -> Building:
     storages: ResourceStoragesType = {}
 
@@ -21,17 +18,11 @@ def build_construction_site(
         storages[resource] = ResourceStorage(True, False, quantity)
 
     construction_site = Building(
-        spec.name,
-        storages,
-        renderable_type='building_construction'
+        spec.name, storages, renderable_type="building_construction"
     )
 
-    construction_site.components.add(
-        position
-    )
+    construction_site.components.add(position)
 
-    construction_site.components.add(
-        (Construction, spec)
-    )
+    construction_site.components.add((Construction, spec))
 
     return construction_site

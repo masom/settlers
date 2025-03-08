@@ -3,40 +3,30 @@ import structlog
 from collections import defaultdict
 from typing import Callable, List, Optional
 
-from settlers.engine.components import (
-    Component, ComponentProxy, ComponentManager
-)
-from settlers.engine.components.construction import (
-    Construction, ConstructionWorker
-)
-from settlers.engine.components.factory import (
-    Factory, FactoryWorker
-)
+from settlers.engine.components import Component, ComponentProxy, ComponentManager
+from settlers.engine.components.construction import Construction, ConstructionWorker
+from settlers.engine.components.factory import Factory, FactoryWorker
 from settlers.engine.components.harvesting import (
     Harvester,
     STATE_FULL as HARVESTER_STATE_FULL,
-    STATE_DELIVERING as HARVESTER_STATE_DELIVERING
+    STATE_DELIVERING as HARVESTER_STATE_DELIVERING,
 )
 from settlers.engine.components.spawner import (
     SpawnerWorker,
 )
-from settlers.engine.components.inventory_routing import (
-    InventoryRouting
-)
-from settlers.engine.components.movement import (
-    ResourceTransport
-)
+from settlers.engine.components.inventory_routing import InventoryRouting
+from settlers.engine.components.movement import ResourceTransport, Travel
 
 from settlers.entities.buildings import Building
 
-STATE_IDLE = 'idle'
-STATE_BUSY = 'busy'
+STATE_IDLE = "idle"
+STATE_BUSY = "busy"
 
-logger = structlog.get_logger('game.villager_ai')
+logger = structlog.get_logger("game.villager_ai")
 
 
 class VillagerAi(Component):
-    __slots__ = ('_available_tasks', 'state', 'task')
+    __slots__ = ("_available_tasks", "state", "task")
 
     def __init__(self, owner):
         super().__init__(owner)
@@ -55,7 +45,7 @@ class VillagerAi(Component):
         return self._available_tasks
 
     def on_task_ended(self, component: Component) -> None:
-        logger.info('on_task_ended', component=component)
+        logger.info("on_task_ended", component=component)
         self.task = None
         self.state_change(STATE_IDLE)
 
@@ -64,7 +54,7 @@ class VillagerAi(Component):
             return
 
         logger.debug(
-            'state_change',
+            "state_change",
             owner=self.owner,
             component=self,
             old_state=self.state,
@@ -75,10 +65,7 @@ class VillagerAi(Component):
         self.state = new_state
 
     def __repr__(self) -> str:
-        return "<{self} {id}>".format(
-            self=self.__class__.__name__,
-            id=hex(id(self))
-        )
+        return "<{self} {id}>".format(self=self.__class__.__name__, id=hex(id(self)))
 
 
 class VillagerAiSystem:
@@ -132,7 +119,7 @@ class VillagerAiSystem:
 
         if not possible_destinations:
             logger.debug(
-                'handle_busy_harvester:destination_selection_empty',
+                "handle_busy_harvester:destination_selection_empty",
                 owner=villager.owner,
                 system=self.__class__.__name__,
                 provides=harvester.resources,
@@ -143,7 +130,10 @@ class VillagerAiSystem:
 
         destination = random.choice(possible_destinations)
         harvester.assign_destination(destination)
-        harvester.owner.travel.stop()
+
+        travel: Travel = ComponentManager.fetch(harvester.owner_id(), Travel)
+        travel.stop()
+
         harvester.state_change(HARVESTER_STATE_DELIVERING)
 
     def handle_busy_villager(self, villager: VillagerAi) -> None:
@@ -151,19 +141,18 @@ class VillagerAiSystem:
             self.handle_busy_harvester(villager)
 
     def handle_idle_villager(self, villager: VillagerAi) -> None:
-        if not hasattr(villager.owner, 'resource_transport'):
+        if not hasattr(villager.owner, "resource_transport"):
             return
 
-        options: List[Callable] = [
-            self.resource_transport_for_villager
-        ]
+        options: List[Callable] = [self.resource_transport_for_villager]
         task: Callable = random.choice(options)
 
         task(villager)
 
-    '''
+    """
     Find a random factory and check if it has resources available for transport.
-    '''
+    """
+
     def resource_transport_for_villager(self, villager: VillagerAi) -> None:
         factories: List[Factory] = ComponentManager[Factory]
 
@@ -171,18 +160,13 @@ class VillagerAiSystem:
         for factory in random.sample(factories, len(factories)):
             source: Building = factory.owner
 
-            available_for_transport = (
-                source
-                .inventory
-                .available_for_transport()
-            )
+            available_for_transport = source.inventory.available_for_transport()
 
             if not available_for_transport:
                 continue
 
             destination = self._find_destination_for_transport(
-                source,
-                available_for_transport
+                source, available_for_transport
             )
 
             if not destination:
@@ -196,7 +180,7 @@ class VillagerAiSystem:
                     villager.owner.storages[want]
 
             logger.debug(
-                'resource_transport_for_villager:process_component_accepted',
+                "resource_transport_for_villager:process_component_accepted",
                 system=self.__class__.__name__,
                 task=ResourceTransport,
                 target=destination,
@@ -214,11 +198,13 @@ class VillagerAiSystem:
 
             return
 
-    def _find_destination_for_transport(self, origin: Building, resource: type) -> Building:
+    def _find_destination_for_transport(
+        self, origin: Building, resource: type
+    ) -> Building:
         destinations_by_priority: dict[str, list[Building]] = {
-            'high': [],
-            'normal': [],
-            'low': [],
+            "high": [],
+            "normal": [],
+            "low": [],
         }
 
         locations: List[InventoryRouting] = ComponentManager[InventoryRouting]
@@ -237,18 +223,14 @@ class VillagerAiSystem:
                 continue
 
             if hasattr(destination, Construction.exposed_as):
-                destinations_by_priority['high'].append(
-                    destination
-                )
+                destinations_by_priority["high"].append(destination)
                 continue
 
             if hasattr(destination, Factory.exposed_as):
-                destinations_by_priority['normal'].append(
-                    destination
-                )
+                destinations_by_priority["normal"].append(destination)
                 continue
 
-            destinations_by_priority['low'].append(destination)
+            destinations_by_priority["low"].append(destination)
 
         for priority, destinations in destinations_by_priority.items():
             if not destinations:
@@ -256,12 +238,12 @@ class VillagerAiSystem:
 
             destination = random.choice(destinations)
             logger.info(
-                '_find_destination_for_transport',
+                "_find_destination_for_transport",
                 origin=origin,
                 destination=destination,
                 system=self.__class__.__name__,
                 resource=resource,
-                priority=priority
+                priority=priority,
             )
             return destination
 
@@ -269,7 +251,7 @@ class VillagerAiSystem:
         self.current_tick = tick
 
         if self.current_tick % 10 != 0:
-           return
+            return
 
         for villager in villagers:
             if villager.state == STATE_BUSY:
@@ -289,7 +271,7 @@ class VillagerAiSystem:
             component: Component = getattr(villager.owner, task.exposed_as)
             if component.start(target):
                 logger.debug(
-                    'process_component_accepted',
+                    "process_component_accepted",
                     system=self.__class__.__name__,
                     task=task,
                     target=target,
@@ -301,7 +283,7 @@ class VillagerAiSystem:
                 villager.state_change(STATE_BUSY)
             else:
                 logger.debug(
-                    'process_component_rejected',
+                    "process_component_rejected",
                     system=self.__class__.__name__,
                     task=task,
                     target=target,
@@ -314,7 +296,7 @@ class VillagerAiSystem:
 
         if not available_tasks:
             logger.debug(
-                'select_task:no_tasks',
+                "select_task:no_tasks",
                 system=self.__class__.__name__,
                 villager=villager.owner,
             )
@@ -328,9 +310,7 @@ class VillagerAiSystem:
         if not target_components:
             return None
 
-        entities: List[tuple] = ComponentManager.entities_matching(
-            target_components
-        )
+        entities: List[tuple] = ComponentManager.entities_matching(target_components)
 
         for entity, components in entities:
             targets = list(components)

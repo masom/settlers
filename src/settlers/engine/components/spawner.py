@@ -7,32 +7,37 @@ from settlers.engine.entities.entity import Entity
 from settlers.engine.entities.position import Position
 from settlers.engine.entities.resources import Resource
 from settlers.engine.entities.resources.resource_storage import ResourceStorage
-from settlers.engine.components.factory import Factory, FactorySystem, Pipeline as FactoryPipeline 
+from settlers.engine.components.factory import (
+    Factory,
+    FactorySystem,
+    Pipeline as FactoryPipeline,
+)
 from settlers.engine.world import World
 
-STATE_IDLE = 'idle'
-STATE_ACTIVE = 'active'
+STATE_IDLE = "idle"
+STATE_ACTIVE = "active"
 
 ComponentsType = List[Tuple[type, list, int]]
 
-logger = structlog.get_logger('engine.spawner')
+logger = structlog.get_logger("engine.spawner")
 
 
 class EntitySpawnSpec:
     __slots__ = (
-        'components',
-        'fabrication_ticks',
-        'name',
-        'renderable_type',
-        'storages'
+        "components",
+        "fabrication_ticks",
+        "name",
+        "renderable_type",
+        "storages",
     )
 
     def __init__(
-        self, components: ComponentsType,
+        self,
+        components: ComponentsType,
         fabrication_ticks: int,
         name: str,
         renderable_type: str,
-        storages: dict
+        storages: dict,
     ) -> None:
         self.components: ComponentsType = components
         self.fabrication_ticks: int = fabrication_ticks
@@ -42,18 +47,16 @@ class EntitySpawnSpec:
 
     def __del__(self):
         logger.debug(
-            '__del__',
+            "__del__",
             spec=self,
             klass=self.__class__.__name__,
         )
 
 
 class SpawnerOutput:
-    __slots__ = ('quantity', 'entity_class')
+    __slots__ = ("quantity", "entity_class")
 
-    def __init__(
-        self, quantity: int, entity: Type[Entity] 
-    ) -> None:
+    def __init__(self, quantity: int, entity: Type[Entity]) -> None:
         self.entity_class: Type[Entity] = entity
         self.quantity: int = quantity
 
@@ -62,6 +65,7 @@ class SpawnerOutput:
         spawned = self.entity_class()
 
         return spawned
+
 
 class SpawnerPipeline(FactoryPipeline):
     def build_outputs(self) -> List[Entity]:
@@ -83,6 +87,7 @@ class SpawnerPipeline(FactoryPipeline):
 
         return True
 
+
 class SpawnerWorker(Worker):
     _target_components: List[type] = []
 
@@ -94,7 +99,8 @@ class SpawnerWorker(Worker):
 
 
 class Spawner(Factory):
-    exposed_as = 'spawner'
+    exposed_as = "spawner"
+
 
 class SpawnerSystem(FactorySystem):
     component_types = [Spawner]
@@ -106,11 +112,9 @@ class SpawnerSystem(FactorySystem):
         self.on_production(self._on_spawns)
 
     def _on_spawns(self, factory: Spawner, spawns: List[Entity]) -> None:
-        factory_position: Position = factory.owner.position.reveal(
-            Position
-        )
+        factory_position: Position = factory.owner.position.reveal(Position)
 
-        position = (Position, factory_position.x + 1, factory_position.y + 50) 
+        position = (Position, factory_position.x + 1, factory_position.y + 50)
 
         for spawn in spawns:
             spawn.on_spawn([position])
