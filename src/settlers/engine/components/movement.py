@@ -2,6 +2,7 @@ import math
 import structlog
 from typing import List, Optional, Tuple, Type
 import weakref
+from collections import deque
 
 from . import Component, ComponentManager
 from ..entities.entity import Entity
@@ -34,14 +35,26 @@ TRANSPORT_DIRECTION_DESTINATION: str = "destination"
 
 
 class Travel(Component):
-    __slots__ = "destination"
+    __slots__ = ["destination", "past"]
 
     def __init__(self, owner) -> None:
         super().__init__(owner)
+        self.past = deque(maxlen=10)
 
         self.destination: Optional[weakref.ReferenceType[Entity]] = None
 
-    def start(self, destination) -> None:
+    def stuck_detection(self) -> None:
+        if self.destination:
+            self.past.append(self.destination())
+
+        if len(self.past) < 3:
+            return
+
+        same = set(self.past)
+        if len(same) == 1:
+            import pdb; pdb.set_trace()
+
+    def start(self, destination: Entity) -> None:
         if self.destination:
             logger.error(
                 "start_failed_destination_set",
@@ -52,10 +65,18 @@ class Travel(Component):
             )
             raise RuntimeError("already moving somewhere")
 
+        logger.debug(
+            "start",
+            component=self.__class__.__name__,
+            owner=self.owner,
+            destination=destination,
+        )
         self.destination = weakref.ref(destination)
         self.state_change(STATE_MOVING)
+        self.stuck_detection()
 
     def stop(self, skip_idle_state=False) -> None:
+        self.stuck_detection()
         self.destination = None
         super().stop(skip_idle_state)
 
@@ -222,7 +243,11 @@ class ResourceTransport(Component):
 
     def __repr__(self) -> str:
         return "<{owner}#{component} {id}>".format(
-            owner=self.owner, component=self.__class__.__name__, id=hex(id(self))
+            owner=self.owner,
+            component=self.__class__.__name__,
+            id=hex(id(self)),
+            source=self.source,
+            destination=self.destination,
         )
 
 
@@ -236,7 +261,7 @@ class ResourceTransportSystem:
         resource_transport: ResourceTransport
         travel: Travel
 
-        for resource_transport, travel in entities:
+        for resource_transport, travel in entities: # type: ignore
             if resource_transport.state == STATE_IDLE:
                 self.handle_idle(resource_transport, travel)
                 continue
@@ -262,7 +287,8 @@ class ResourceTransportSystem:
         self, resource_transport: ResourceTransport, travel: Travel
     ) -> None:
         if not resource_transport.source:
-            resource_transport.stop()
+            # We are already idle, don't transition for the sake of transitioning
+            resource_transport.stop(skip_idle_state=True)
             return
 
         source = resource_transport.source()
@@ -334,19 +360,27 @@ class ResourceTransportSystem:
         destination = resource_transport.destination()
         if not destination:
             # TODO HERE MIGHT BE BUG?
+            logger.debug(
+                'handle_loading.no_destination',
+                resource_transport=resource_transport,
+                source=source,
+                owner=resource_transport.owner,
+                system=self.__class__.__name__
+            )
             resource_transport.stop()
             return
 
         resource_transport.state_change(STATE_MOVING)
         travel.start(destination)
 
-    def handle_movement(self, resource_transport):
+    def handle_movement(self, resource_transport: ResourceTransport, worker_travel: Travel) -> None:
         if resource_transport.direction == TRANSPORT_DIRECTION_SOURCE:
             if not resource_transport.source:
                 resource_transport.stop()
                 return
 
             source = resource_transport.source()
+            import pdb; pdb.set_trace()
             if resource_transport.position() == source.position:
                 resource_transport.state_change(STATE_LOADING)
                 return
@@ -425,8 +459,8 @@ class ResourceTransportSystem:
 
                 rejected.append(item)
 
-        for item in rejected:
-            storage.add(item)
+            for item in rejected:
+                storage.add(item)
 
         logger.debug(
             "handle_unloading",

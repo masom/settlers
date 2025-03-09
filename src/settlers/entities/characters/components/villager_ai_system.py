@@ -1,7 +1,7 @@
 import random
 import structlog
 from collections import defaultdict
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Type
 
 from settlers.engine.components import Component, ComponentProxy, ComponentManager
 from settlers.engine.components.construction import Construction, ConstructionWorker
@@ -72,19 +72,17 @@ class VillagerAiSystem:
     component_types = [VillagerAi]
 
     def __init__(self, world: object) -> None:
-        self.tasks: List[Component] = [
+        self.tasks: List[Type[Component]] = [
             Harvester,
             ConstructionWorker,
             FactoryWorker,
             SpawnerWorker,
         ]
 
-        self.entities = world.entities
         self._awaiting_until: dict = {}
 
     def handle_busy_harvester(self, villager: VillagerAi) -> None:
-        proxy: ComponentProxy = getattr(villager.owner, Harvester.exposed_as)
-        harvester: Harvester = proxy.reveal(Harvester)
+        harvester: Harvester = ComponentManager.fetch(villager.owner_id(), Harvester)
 
         if not harvester.state == HARVESTER_STATE_FULL:
             return
@@ -99,8 +97,9 @@ class VillagerAiSystem:
 
         for location in locations:
             entity: Building = location.owner
-            wants: set = entity.inventory.wants_resources()
+            wants: set = entity.inventory.wants_resources() # type: ignore
             common: set = harvester.resources.intersection(wants)
+
             if not common:
                 """
                     logger.debug(

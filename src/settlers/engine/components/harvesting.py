@@ -446,6 +446,7 @@ class HarvesterSystem:
 
             if destination:
                 if destination().position == source.position():
+                    # we're on our way to the source.
                     return
                 else:
                     raise RuntimeError("we got a problem")
@@ -463,6 +464,8 @@ class HarvesterSystem:
 
             worker_travel.start(source.owner)
             return
+
+        worker_travel.stop()
 
         if not worker.can_harvest(resource):
             logger.debug(

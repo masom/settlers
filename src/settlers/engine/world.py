@@ -1,9 +1,14 @@
 from typing import Optional, List, Tuple
 
+import structlog
+
+logger = structlog.get_logger("engine.world")
+
 from settlers.engine.entities.entity import Entity
 from settlers.engine.components import Component, ComponentManager
 
 
+# Harvester -> Travel -> ResourceTransport -> stop
 class World:
     __slots__ = ("entities", "map", "random_seed", "systems")
 
@@ -35,6 +40,7 @@ class World:
                 if not system.should_process(tick):
                     continue
 
+            logger.debug('process', system=system.__class__.__name__)
             system.process(tick, components)
 
     def components_matching(self, wants: list) -> list[Component]:
