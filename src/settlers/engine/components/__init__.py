@@ -5,15 +5,56 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, TypeVa
 logger = structlog.get_logger("components")
 
 
+STATE_IDLE = "idle"
+
+
+class Component:
+    __slots__ = ("_on_end_callbacks", "owner", "state", "__weakref__")
+
+    def __init__(self, owner) -> None:
+        self._on_end_callbacks: List[Callable] = []
+        self.owner = owner
+        self.state = STATE_IDLE
+
+    def owner_id(self) -> int:
+        return id(self.owner)
+
+    def on_end(self, callback: Callable) -> None:
+        self._on_end_callbacks.append(callback)
+
+    def state_change(self, new_state: str) -> None:
+        if self.state == new_state:
+            return
+
+        logger.debug(
+            "state_change",
+            old_state=self.state,
+            new_state=new_state,
+            owner=self.owner,
+            component=self.__class__.__name__,
+        )
+
+        self.state = new_state
+
+    def stop(self, skip_idle_state=False) -> None:
+        if not skip_idle_state:
+            self.state_change(STATE_IDLE)
+
+        for callback in self._on_end_callbacks:
+            callback(self)
+
+        self._on_end_callbacks = []
+
+
 class Components:
     __slots__ = ["components", "component_classes", "owner"]
 
     def __init__(self, owner: object):
-        self.owner = owner
+        self.owner: object = owner
         self.components: List[Component] = []
         self.component_classes: Set[Type[Component]] = set()
 
-    def initialize(self):
+    def initialize(self) -> None:
         parents: List[Type[object]] = [self.owner.__class__]
         parents.extend(self._find_parents(self.owner.__class__))
 
@@ -83,22 +124,7 @@ class Components:
 
         ComponentManager.remove(component)
 
-        if hasattr(component, "exposed_as"):
-            exposed_as = component.exposed_as
-            multiple = False
-            if hasattr(component, "expose_multiple"):
-                multiple = getattr(component, "expose_multiple")
-
-            if multiple:
-                components = getattr(self.owner, exposed_as)
-                components.remove(component)
-
-                if not components:
-                    delattr(self.owner, exposed_as)
-            else:
-                delattr(self.owner, exposed_as)
-
-    def classes(self):
+    def classes(self) -> Set[Type[Component]]:
         return self.component_classes
 
     def __iter__(self):
@@ -165,47 +191,6 @@ class ComponentProxy:
         )
 
 
-STATE_IDLE = "idle"
-
-
-class Component:
-    __slots__ = ("_on_end_callbacks", "owner", "state", "__weakref__")
-
-    def __init__(self, owner) -> None:
-        self._on_end_callbacks: List[Callable] = []
-        self.owner = owner
-        self.state = STATE_IDLE
-
-    def owner_id(self) -> int:
-        return id(self.owner)
-
-    def on_end(self, callback: Callable) -> None:
-        self._on_end_callbacks.append(callback)
-
-    def state_change(self, new_state: str) -> None:
-        if self.state == new_state:
-            return
-
-        logger.debug(
-            "state_change",
-            old_state=self.state,
-            new_state=new_state,
-            owner=self.owner,
-            component=self.__class__.__name__,
-        )
-
-        self.state = new_state
-
-    def stop(self, skip_idle_state=False) -> None:
-        if not skip_idle_state:
-            self.state_change(STATE_IDLE)
-
-        for callback in self._on_end_callbacks:
-            callback(self)
-
-        self._on_end_callbacks = []
-
-
 ComponentsType = Dict[Type[Component], List[Component]]
 
 
@@ -270,6 +255,7 @@ class ComponentManager(metaclass=ComponentManagerMeta):
         for component in components:
             if isinstance(component, requested_component):
                 return component
+        return None
 
     @classmethod
     def fetch_multi(
@@ -281,7 +267,7 @@ class ComponentManager(metaclass=ComponentManagerMeta):
 
         request = tuple(requested_components)
 
-        [component for component in components if isinstance(component, request)]
+        return [component for component in components if isinstance(component, request)]
 
     @classmethod
     def entities_matching(

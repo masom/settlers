@@ -41,7 +41,7 @@ class Travel(Component):
 
     def __init__(self, owner) -> None:
         super().__init__(owner)
-        self.past = deque(maxlen=10)
+        self.past: deque = deque(maxlen=10)
 
         self.destination: Optional[weakref.ReferenceType[Entity]] = None
 
@@ -232,7 +232,7 @@ class ResourceTransport(Component):
     def position(self) -> Position:
         return self.owner.position
 
-    def start(self, destination: Entity, source: Entity = None) -> None:
+    def start(self, destination: Entity, source: Optional[Entity] = None) -> None:
         if self.destination:
             raise RuntimeError("already going somewhere")
 
@@ -259,7 +259,7 @@ class ResourceTransport(Component):
         self._common_route_resources = None
 
     def __repr__(self) -> str:
-        return "<{owner}#{component} {id}>".format(
+        return "<{owner}#{component} {id} {source} {destination}>".format(
             owner=self.owner,
             component=self.__class__.__name__,
             id=hex(id(self)),
@@ -319,7 +319,7 @@ class ResourceTransportSystem:
         if not resource_transport.position() == source.position:
             resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
             resource_transport.state_change(STATE_MOVING)
-            travel.start(source, inspect.currentframe().f_code.co_name)
+            travel.start(source)
             return
 
         resource_transport.state_change(STATE_LOADING)
@@ -396,11 +396,20 @@ class ResourceTransportSystem:
                 resource_transport.stop()
                 return
 
-            source = resource_transport.source()
+            source: Component = resource_transport.source()
+
             import pdb
 
             pdb.set_trace()
-            if resource_transport.position() == source.position:
+
+            resource_transport_position: Position = ComponentManager.fetch(
+                resource_transport.owner_id(), Position
+            )
+            source_position: Position = ComponentManager.fetch(
+                source.owner_id(), Position
+            )
+
+            if resource_transport_position == source_position:
                 resource_transport.state_change(STATE_LOADING)
                 return
         else:

@@ -1,5 +1,5 @@
 import structlog
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Protocol
 import weakref
 
 from settlers.engine.entities.position import Position
@@ -12,11 +12,13 @@ STATE_ACTIVE: str = "active"
 logger = structlog.get_logger("engine.worker")
 
 
+class Worksite(Protocol):
+    def can_add_worker(self) -> bool: ...
+    def add_worker(self, worker: object) -> bool: ...
+
+
 class Worker(Component):
     __slots__ = ("_on_end_callbacks", "pipeline", "progress", "state", "workplace")
-
-    exposed_as = "work"
-    exposed_methods = ("on_end", "start", "stop")
 
     def __init__(self, owner: object) -> None:
         super().__init__(owner)
@@ -49,7 +51,7 @@ class Worker(Component):
     def on_end(self, callback: Callable) -> None:
         self._on_end_callbacks.append(callback)
 
-    def start(self, target: Component) -> bool:
+    def start(self, target: Worksite) -> bool:
         if self.workplace:
             raise RuntimeError("already working")
 
