@@ -2,6 +2,7 @@ import structlog
 import weakref
 from typing import List, Optional, Type, Tuple
 
+from settlers.engine.components import ComponentManager
 from settlers.engine.components.worker import Worker
 from settlers.engine.entities.entity import Entity
 from settlers.engine.entities.position import Position
@@ -112,8 +113,9 @@ class SpawnerSystem(FactorySystem):
         self.on_production(self._on_spawns)
 
     def _on_spawns(self, factory: Spawner, spawns: List[Entity]) -> None:
-        factory_position: Position = factory.owner.position.reveal(Position)
 
+        factory_position: Position = ComponentManager.fetch(factory.owner_id(), Position)
+        
         position = (Position, factory_position.x + 1, factory_position.y + 50)
 
         for spawn in spawns:

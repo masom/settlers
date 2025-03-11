@@ -77,29 +77,11 @@ class Components:
 
         ComponentManager.append(component_instance)
 
-        if hasattr(component_instance, "exposed_as"):
-            multiple = False
-            if hasattr(component_instance, "expose_multiple"):
-                multiple = bool(getattr(component_instance, "expose_multiple"))
-
-            exposed_as: str = component_instance.exposed_as
-            exposed_as_defined: bool = hasattr(self.owner, exposed_as)
-
-            if not multiple and exposed_as_defined:
-                raise RuntimeError(
-                    "{owner} already defined {exposed_as}".format(
-                        owner=self.owner, exposed_as=exposed_as
-                    )
-                )
-
-            component_proxy = ComponentProxy(self.owner, component_instance)
-            setattr(self.owner, exposed_as, component_proxy)
-
     def remove(self, component):
         self.components.remove(component)
         self.component_classes = set([c.__class__ for c in self.components])
 
-        ComponentManager[component.__class__].remove(component)
+        ComponentManager.remove(component)
 
         if hasattr(component, "exposed_as"):
             exposed_as = component.exposed_as
@@ -243,13 +225,19 @@ class ComponentManager(metaclass=ComponentManagerMeta):
     _entities: Dict[int, List[Component]] = defaultdict(list)
 
     @classmethod
-    def append(cls, component_instance: Component):
+    def append(cls, component_instance: Component) -> None:
 
         owner_id = component_instance.owner_id()
 
         cls._entities[owner_id].append(component_instance)
 
         cls[component_instance.__class__].append(component_instance)
+
+    @classmethod
+    def remove(cls, component_instance: Component) -> None:
+        owner_id = component_instance.owner_id()
+        cls._entities[owner_id].remove(component_instance)
+        cls[component_instance.__class__].remove(component_instance)
 
     @classmethod
     def entity(cls, identifier: int) -> Optional[List[Component]]:
@@ -259,6 +247,15 @@ class ComponentManager(metaclass=ComponentManagerMeta):
 
     @classmethod
     def fetch(cls, identifier: int, requested_component: Type[FetchType]) -> FetchType:
+        component = cls.fetch_optional(identifier, requested_component)
+        if component:
+            return component
+        
+        import pdb; pdb.set_trace()
+        raise RuntimeError("Component not found")
+
+    @classmethod
+    def fetch_optional(cls, identifier: int, requested_component: Type[FetchType]) -> Optional[FetchType]:
         components: Optional[List[Component]] = cls._entities.get(identifier)
         if not components:
             import pdb
@@ -269,8 +266,6 @@ class ComponentManager(metaclass=ComponentManagerMeta):
         for component in components:
             if isinstance(component, requested_component):
                 return component
-
-        raise RuntimeError("Component not found")
 
     @classmethod
     def fetch_multi(
@@ -285,14 +280,14 @@ class ComponentManager(metaclass=ComponentManagerMeta):
         [component for component in components if isinstance(component, request)]
 
     @classmethod
-    def entities_matching(cls, selection: List[type]) -> list:
-        entities: List[Tuple[object, List[Component]]] = []
+    def entities_matching(cls, selection: List[type]) -> List[Tuple[int, List[Component]]]:
+        entities: List[Tuple[int, List[Component]]] = []
         len_selection = len(selection)
-        components: Dict[object, List[Component]] = defaultdict(list)
+        components: Dict[int, List[Component]] = defaultdict(list)
 
         for component_class in selection:
             for component in cls._components[component_class]:
-                components[component.owner].append(component)
+                components[component.owner_id()].append(component)
 
         for entity, entity_components in components.items():
             if not len(entity_components) == len_selection:

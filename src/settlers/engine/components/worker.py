@@ -2,7 +2,9 @@ import structlog
 from typing import Callable, List, Optional
 import weakref
 
-from . import Component
+from settlers.engine.entities.position import Position
+
+from . import Component, ComponentManager
 
 STATE_IDLE: str = "idle"
 STATE_ACTIVE: str = "active"
@@ -33,7 +35,10 @@ class Worker(Component):
         if not workplace:
             return False
 
-        return workplace.position() == self.owner.position
+        workplace_position = ComponentManager.fetch(workplace.owner_id(), Position)
+        my_position = ComponentManager.fetch(self.owner_id(), Position)
+
+        return workplace_position == my_position
 
     def is_active(self) -> bool:
         if not self.can_work():

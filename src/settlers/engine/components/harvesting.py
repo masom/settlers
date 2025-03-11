@@ -1,9 +1,11 @@
 import structlog
 from typing import Callable, List, Optional, Set, Tuple, Type
 import weakref
+import inspect
 
 from settlers.engine.entities.entity import Entity
 from settlers.engine.entities.position import Position
+from settlers.engine.components.inventory_routing import InventoryRouting
 
 from . import Component, ComponentManager
 from .movement import Travel
@@ -33,9 +35,6 @@ class Harvester(Component):
         "ticks",
     )
 
-    exposed_as = "harvest"
-    exposed_methods = ("assign_destination", "can_harvest", "on_end", "start", "stop")
-
     _target_components: List[Type[Component]] = []
 
     def __init__(
@@ -46,17 +45,17 @@ class Harvester(Component):
     ):
         super().__init__(owner)
 
-        self.destination: Optional[weakref.ReferenceType] = None
+        self.destination: Optional[weakref.ReferenceType[Entity]] = None
         self.on_end_callbacks: List[Callable] = []
         self.state = STATE_IDLE
         self._resources: Set[Type[Resource]] = set(resources)
-        self.storage = storage
-        self.source: Optional[weakref.ReferenceType] = None
+        self.storage: ResourceStorage = storage
+        self.source: Optional[weakref.ReferenceType[Entity]] = None
         self.ticks = 0
 
         self.update_resources()
 
-    def assign_destination(self, building) -> None:
+    def assign_destination(self, building: Entity) -> None:
         self.destination = weakref.ref(building)
 
     def update_resources(self) -> None:
@@ -95,7 +94,10 @@ class Harvester(Component):
         if not destination:
             raise RuntimeError("destination is dead")
 
-        if not destination.position == self.owner.position:
+        destination_position: Position = ComponentManager.fetch(destination.id(), Position)
+        my_position: Position = ComponentManager.fetch(self.owner_id(), Position)
+
+        if not destination_position == my_position:
             raise RuntimeError("not yet at destination")
 
         delivered: List[Type[Resource]] = []
@@ -104,8 +106,9 @@ class Harvester(Component):
         resource_type: Type[Resource]
         output_storage: ResourceStorage
 
+        destination_inventory: InventoryRouting = ComponentManager.fetch(destination.id(), InventoryRouting)
         for resource_type, output_storage in self.storage.items():
-            input_storage: ResourceStorage = destination.inventory.storage_for(
+            input_storage: ResourceStorage = destination_inventory.storage_for(
                 resource_type
             )
 
@@ -142,9 +145,6 @@ class Harvester(Component):
 
     def on_end(self, callback: Callable) -> None:
         self.on_end_callbacks.append(callback)
-
-    def position(self):
-        return self.owner.position
 
     def receive_harvest(self, harvest: List[Type[Resource]]) -> None:
         collected = 0
@@ -331,9 +331,6 @@ class Harvestable(Component):
                 return True
         return False
 
-    def position(self):
-        return self.owner.position
-
     def __repr__(self) -> str:
         return "<{owner}#{component} {id}>".format(
             owner=self.owner, component=self.__class__.__name__, id=hex(id(self))
@@ -392,7 +389,10 @@ class HarvesterSystem:
             worker.stop()
             return
 
-        if destination.position == worker.position():
+        destination_position = ComponentManager.fetch(destination.id(), Position)
+        worker_position = ComponentManager.fetch(worker.owner_id(), Position)
+
+        if destination_position == worker_position:
             worker.deliver()
             return
 
@@ -423,7 +423,8 @@ class HarvesterSystem:
             worker.stop()
             return
 
-        source = worker.source()
+        source: Optional[Harvestable] = worker.source()
+
         if not source:
             logger.debug(
                 "handle_harvesting:source_dead",
@@ -441,14 +442,24 @@ class HarvesterSystem:
             worker.state_change(STATE_FULL)
             return
 
-        if not worker.position() == source.position():
-            destination = worker_travel.destination
+        worker_position: Position = ComponentManager.fetch(worker.owner_id(), Position)
+        source_position: Position = ComponentManager.fetch(source.owner_id(), Position)
 
-            if destination:
-                if destination().position == source.position():
+        if not worker_position == source_position:
+            destination_entity: Optional[Entity] = None
+            
+            if worker_travel.destination:
+                destination_entity = worker_travel.destination()
+
+            if destination_entity:
+                destination_entity_id = destination_entity.id()
+                source_entity_id = source.owner_id()
+
+                if destination_entity_id == source_entity_id:
                     # we're on our way to the source.
                     return
                 else:
+                    import pdb; pdb.set_trace()
                     raise RuntimeError("we got a problem")
 
             logger.debug(
@@ -456,8 +467,8 @@ class HarvesterSystem:
                 system=self.__class__.__name__,
                 source=source,
                 worker=worker,
-                source_position=source.position(),
-                worker_position=worker.position(),
+                source_position=source_position,
+                worker_position=worker_position,
             )
 
             worker.ticks = 0

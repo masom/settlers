@@ -154,9 +154,6 @@ class Factory(Component):
     def can_add_worker(self) -> bool:
         return len(self.workers) < self.max_workers
 
-    def position(self):
-        return self.owner.position
-
     def remove_worker(self, worker: Worker) -> bool:
         for reference in self.workers:
             resolved_reference: Optional[Worker] = reference()
@@ -252,7 +249,10 @@ class FactorySystem:
 
                 worker.progress = 0
 
-                if not worker.owner.position == factory.position():
+                worker_position: Position = ComponentManager.fetch(worker.owner_id(), Position)
+                factory_position: Position = ComponentManager.fetch(factory.owner_id(), Position)
+
+                if not worker_position == factory_position:
                     worker_travel: Optional[Travel] = ComponentManager.fetch(
                         worker.owner_id(), Travel
                     )

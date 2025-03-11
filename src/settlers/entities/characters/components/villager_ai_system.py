@@ -1,7 +1,7 @@
 import random
 import structlog
 from collections import defaultdict
-from typing import Callable, List, Optional, Type
+from typing import Any, Callable, List, Optional, Tuple, Type
 
 from settlers.engine.components import Component, ComponentProxy, ComponentManager
 from settlers.engine.components.construction import Construction, ConstructionWorker
@@ -31,10 +31,10 @@ class VillagerAi(Component):
     def __init__(self, owner):
         super().__init__(owner)
         self.state = STATE_IDLE
-        self.task = None
-        self._available_tasks = []
+        self.task: Component = None
+        self._available_tasks: List[Type[Component]] = []
 
-    def available_tasks(self, supported_tasks: list[Component]):
+    def available_tasks(self, supported_tasks: list[Component]) -> List[Type[Component]]:
         if self._available_tasks:
             return self._available_tasks
 
@@ -69,7 +69,7 @@ class VillagerAi(Component):
 
 
 class VillagerAiSystem:
-    component_types = [VillagerAi]
+    component_types = (VillagerAi,)
 
     def __init__(self, world: object) -> None:
         self.tasks: List[Type[Component]] = [
@@ -87,7 +87,7 @@ class VillagerAiSystem:
         if not harvester.state == HARVESTER_STATE_FULL:
             return
 
-        awaiting = self._awaiting_until.get(villager, 0)
+        awaiting = self._awaiting_until.get(villager.owner_id(), 0)
         if awaiting > self.current_tick:
             return
 
@@ -95,9 +95,11 @@ class VillagerAiSystem:
 
         locations: List[InventoryRouting] = ComponentManager[InventoryRouting]
 
+        random.shuffle(locations)
+
         for location in locations:
-            entity: Building = location.owner
-            wants: set = entity.inventory.wants_resources() # type: ignore
+            target_building: Building = location.owner
+            wants: list = location.wants_resources()
             common: set = harvester.resources.intersection(wants)
 
             if not common:
@@ -114,7 +116,7 @@ class VillagerAiSystem:
                 """
                 continue
 
-            possible_destinations.append(entity)
+            possible_destinations.append(target_building)
 
         if not possible_destinations:
             logger.debug(
@@ -128,8 +130,10 @@ class VillagerAiSystem:
             return
 
         destination = random.choice(possible_destinations)
+
         harvester.assign_destination(destination)
 
+        # TODO: Maybe this is the issue?
         travel: Travel = ComponentManager.fetch(harvester.owner_id(), Travel)
         travel.stop()
 
@@ -140,7 +144,15 @@ class VillagerAiSystem:
             self.handle_busy_harvester(villager)
 
     def handle_idle_villager(self, villager: VillagerAi) -> None:
-        if not hasattr(villager.owner, "resource_transport"):
+        resource_transport: Optional[ResourceTransport] = ComponentManager.fetch_optional(villager.owner_id(), ResourceTransport)
+
+        logger.debug(
+            'handle_idle_villager',
+            resource_transport_present=bool(resource_transport),
+            villager=villager.owner_id()
+        )
+
+        if not resource_transport:
             return
 
         options: List[Callable] = [self.resource_transport_for_villager]
@@ -267,7 +279,8 @@ class VillagerAiSystem:
                 self.handle_idle_villager(villager)
                 continue
 
-            component: Component = getattr(villager.owner, task.exposed_as)
+            component: Component = ComponentManager.fetch(villager.owner_id(), task)
+
             if component.start(target):
                 logger.debug(
                     "process_component_accepted",
@@ -278,6 +291,7 @@ class VillagerAiSystem:
                 )
 
                 component.on_end(villager.on_task_ended)
+
                 villager.task = task
                 villager.state_change(STATE_BUSY)
             else:
@@ -303,22 +317,42 @@ class VillagerAiSystem:
 
         return random.choice(available_tasks)
 
-    def target_for_task(self, task: Component):
-        target_components: List[Component] = task.target_components()
+    def target_for_task(self, task: Component) -> Optional[Component]:
+        """
+        Select an applicable target for a given task.
+
+        The task object will contain a list of components the desired target should contain.
+
+        Upon a match, it will return the applicable target.
+        """
+
+        # Grab the list of components the task requires the targets to have.
+        target_components: List[Type[Component]] = task.target_components()
 
         if not target_components:
             return None
 
-        entities: List[tuple] = ComponentManager.entities_matching(target_components)
+        # List of entities containing the components require by the task
+        target_entities: List[Tuple[int, List[Component]]] = ComponentManager.entities_matching(target_components)
 
-        for entity, components in entities:
+        # TODO: A smarter target selection based on distance from the entity requesting this work.
+        # TODO: Problem is we can allocate to items that don't have a sink, resulting in a game deadlock.
+        # random.shuffle(target_entities)
+
+        entity_id: int
+        components: List[Component]
+
+        for entity_id, components in target_entities:
             targets = list(components)
+
+            # Randomize what you can do on the entity... why?
+            # TODO Find why this shuffle was added
             random.shuffle(targets)
 
             for target_component in targets:
-                proxy = getattr(entity, target_component.exposed_as)
-                if proxy.can_add_worker():
-                    return proxy.reveal(target_component.__class__)
+                target_entity = ComponentManager.fetch(entity_id, target_component.__class__)
+                if target_entity.can_add_worker():
+                    return target_entity
 
     def __repr__(self) -> str:
         return "<{self} {id}>".format(

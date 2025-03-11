@@ -1,8 +1,10 @@
+import inspect
 import math
 import structlog
 from typing import List, Optional, Tuple, Type
 import weakref
 from collections import deque
+import inspect
 
 from . import Component, ComponentManager
 from ..entities.entity import Entity
@@ -65,9 +67,12 @@ class Travel(Component):
             )
             raise RuntimeError("already moving somewhere")
 
+        caller = inspect.stack()[1]
+
         logger.debug(
             "start",
             component=self.__class__.__name__,
+            caller=caller,
             owner=self.owner,
             destination=destination,
         )
@@ -76,6 +81,12 @@ class Travel(Component):
         self.stuck_detection()
 
     def stop(self, skip_idle_state=False) -> None:
+        caller = inspect.stack()[1]
+        logger.debug(
+            'stop',
+            caller=caller,
+            owner=self.owner,
+        )
         self.stuck_detection()
         self.destination = None
         super().stop(skip_idle_state)
@@ -127,7 +138,7 @@ class TravelSystem:
                 continue
 
             if travel.state == STATE_MOVING:
-                destination_position: Position = destination.position.reveal(Position)
+                destination_position: Position = ComponentManager.fetch(destination.id(), Position)
 
                 if destination_position == position:
                     logger.debug(
@@ -163,10 +174,7 @@ class TravelSystem:
 class ResourceTransport(Component):
     __slots__ = ("_common_route_resources", "destination", "direction", "source")
 
-    exposed_as = "resource_transport"
-    exposed_methods = ("is_valid_route", "on_end", "start", "stop")
-
-    def __init__(self, owner) -> None:
+    def __init__(self, owner: Entity) -> None:
         super().__init__(owner)
 
         self._common_route_resources: Optional[set] = None
@@ -220,7 +228,7 @@ class ResourceTransport(Component):
     def position(self) -> Position:
         return self.owner.position
 
-    def start(self, destination, source=None) -> None:
+    def start(self, destination: Entity, source: Entity=None) -> None:
         if self.destination:
             raise RuntimeError("already going somewhere")
 
@@ -234,6 +242,11 @@ class ResourceTransport(Component):
     def stop(self, skip_idle_state=False) -> None:
         super().stop(skip_idle_state=skip_idle_state)
 
+        caller = caller = inspect.stack()[1]
+        logger.debug(
+            'stop',
+            caller=caller,
+        )
         travel: Travel = ComponentManager.fetch(self.owner.id(), Travel)
         travel.stop()
 
@@ -287,8 +300,6 @@ class ResourceTransportSystem:
         self, resource_transport: ResourceTransport, travel: Travel
     ) -> None:
         if not resource_transport.source:
-            # We are already idle, don't transition for the sake of transitioning
-            resource_transport.stop(skip_idle_state=True)
             return
 
         source = resource_transport.source()
@@ -304,7 +315,7 @@ class ResourceTransportSystem:
         if not resource_transport.position() == source.position:
             resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
             resource_transport.state_change(STATE_MOVING)
-            travel.start(source)
+            travel.start(source, inspect.currentframe().f_code.co_name)
             return
 
         resource_transport.state_change(STATE_LOADING)
