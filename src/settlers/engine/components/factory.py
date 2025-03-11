@@ -249,8 +249,12 @@ class FactorySystem:
 
                 worker.progress = 0
 
-                worker_position: Position = ComponentManager.fetch(worker.owner_id(), Position)
-                factory_position: Position = ComponentManager.fetch(factory.owner_id(), Position)
+                worker_position: Position = ComponentManager.fetch(
+                    worker.owner_id(), Position
+                )
+                factory_position: Position = ComponentManager.fetch(
+                    factory.owner_id(), Position
+                )
 
                 if not worker_position == factory_position:
                     worker_travel: Optional[Travel] = ComponentManager.fetch(

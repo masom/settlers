@@ -114,8 +114,10 @@ class SpawnerSystem(FactorySystem):
 
     def _on_spawns(self, factory: Spawner, spawns: List[Entity]) -> None:
 
-        factory_position: Position = ComponentManager.fetch(factory.owner_id(), Position)
-        
+        factory_position: Position = ComponentManager.fetch(
+            factory.owner_id(), Position
+        )
+
         position = (Position, factory_position.x + 1, factory_position.y + 50)
 
         for spawn in spawns:

@@ -34,7 +34,9 @@ class VillagerAi(Component):
         self.task: Component = None
         self._available_tasks: List[Type[Component]] = []
 
-    def available_tasks(self, supported_tasks: list[Component]) -> List[Type[Component]]:
+    def available_tasks(
+        self, supported_tasks: list[Component]
+    ) -> List[Type[Component]]:
         if self._available_tasks:
             return self._available_tasks
 
@@ -144,12 +146,14 @@ class VillagerAiSystem:
             self.handle_busy_harvester(villager)
 
     def handle_idle_villager(self, villager: VillagerAi) -> None:
-        resource_transport: Optional[ResourceTransport] = ComponentManager.fetch_optional(villager.owner_id(), ResourceTransport)
+        resource_transport: Optional[ResourceTransport] = (
+            ComponentManager.fetch_optional(villager.owner_id(), ResourceTransport)
+        )
 
         logger.debug(
-            'handle_idle_villager',
+            "handle_idle_villager",
             resource_transport_present=bool(resource_transport),
-            villager=villager.owner_id()
+            villager=villager.owner_id(),
         )
 
         if not resource_transport:
@@ -333,7 +337,9 @@ class VillagerAiSystem:
             return None
 
         # List of entities containing the components require by the task
-        target_entities: List[Tuple[int, List[Component]]] = ComponentManager.entities_matching(target_components)
+        target_entities: List[Tuple[int, List[Component]]] = (
+            ComponentManager.entities_matching(target_components)
+        )
 
         # TODO: A smarter target selection based on distance from the entity requesting this work.
         # TODO: Problem is we can allocate to items that don't have a sink, resulting in a game deadlock.
@@ -350,7 +356,9 @@ class VillagerAiSystem:
             random.shuffle(targets)
 
             for target_component in targets:
-                target_entity = ComponentManager.fetch(entity_id, target_component.__class__)
+                target_entity = ComponentManager.fetch(
+                    entity_id, target_component.__class__
+                )
                 if target_entity.can_add_worker():
                     return target_entity
 

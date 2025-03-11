@@ -40,7 +40,7 @@ class World:
                 if not system.should_process(tick):
                     continue
 
-            logger.debug('process', system=system.__class__.__name__)
+            logger.debug("process", system=system.__class__.__name__)
             system.process(tick, components)
 
     def components_matching(self, wants: list) -> list[Component]:

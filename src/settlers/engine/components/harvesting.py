@@ -94,7 +94,9 @@ class Harvester(Component):
         if not destination:
             raise RuntimeError("destination is dead")
 
-        destination_position: Position = ComponentManager.fetch(destination.id(), Position)
+        destination_position: Position = ComponentManager.fetch(
+            destination.id(), Position
+        )
         my_position: Position = ComponentManager.fetch(self.owner_id(), Position)
 
         if not destination_position == my_position:
@@ -106,7 +108,9 @@ class Harvester(Component):
         resource_type: Type[Resource]
         output_storage: ResourceStorage
 
-        destination_inventory: InventoryRouting = ComponentManager.fetch(destination.id(), InventoryRouting)
+        destination_inventory: InventoryRouting = ComponentManager.fetch(
+            destination.id(), InventoryRouting
+        )
         for resource_type, output_storage in self.storage.items():
             input_storage: ResourceStorage = destination_inventory.storage_for(
                 resource_type
@@ -447,7 +451,7 @@ class HarvesterSystem:
 
         if not worker_position == source_position:
             destination_entity: Optional[Entity] = None
-            
+
             if worker_travel.destination:
                 destination_entity = worker_travel.destination()
 
@@ -459,7 +463,9 @@ class HarvesterSystem:
                     # we're on our way to the source.
                     return
                 else:
-                    import pdb; pdb.set_trace()
+                    import pdb
+
+                    pdb.set_trace()
                     raise RuntimeError("we got a problem")
 
             logger.debug(

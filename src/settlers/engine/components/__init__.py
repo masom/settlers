@@ -250,12 +250,16 @@ class ComponentManager(metaclass=ComponentManagerMeta):
         component = cls.fetch_optional(identifier, requested_component)
         if component:
             return component
-        
-        import pdb; pdb.set_trace()
+
+        import pdb
+
+        pdb.set_trace()
         raise RuntimeError("Component not found")
 
     @classmethod
-    def fetch_optional(cls, identifier: int, requested_component: Type[FetchType]) -> Optional[FetchType]:
+    def fetch_optional(
+        cls, identifier: int, requested_component: Type[FetchType]
+    ) -> Optional[FetchType]:
         components: Optional[List[Component]] = cls._entities.get(identifier)
         if not components:
             import pdb
@@ -280,7 +284,9 @@ class ComponentManager(metaclass=ComponentManagerMeta):
         [component for component in components if isinstance(component, request)]
 
     @classmethod
-    def entities_matching(cls, selection: List[type]) -> List[Tuple[int, List[Component]]]:
+    def entities_matching(
+        cls, selection: List[type]
+    ) -> List[Tuple[int, List[Component]]]:
         entities: List[Tuple[int, List[Component]]] = []
         len_selection = len(selection)
         components: Dict[int, List[Component]] = defaultdict(list)

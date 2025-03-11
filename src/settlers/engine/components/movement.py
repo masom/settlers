@@ -54,7 +54,9 @@ class Travel(Component):
 
         same = set(self.past)
         if len(same) == 1:
-            import pdb; pdb.set_trace()
+            import pdb
+
+            pdb.set_trace()
 
     def start(self, destination: Entity) -> None:
         if self.destination:
@@ -83,7 +85,7 @@ class Travel(Component):
     def stop(self, skip_idle_state=False) -> None:
         caller = inspect.stack()[1]
         logger.debug(
-            'stop',
+            "stop",
             caller=caller,
             owner=self.owner,
         )
@@ -138,7 +140,9 @@ class TravelSystem:
                 continue
 
             if travel.state == STATE_MOVING:
-                destination_position: Position = ComponentManager.fetch(destination.id(), Position)
+                destination_position: Position = ComponentManager.fetch(
+                    destination.id(), Position
+                )
 
                 if destination_position == position:
                     logger.debug(
@@ -228,7 +232,7 @@ class ResourceTransport(Component):
     def position(self) -> Position:
         return self.owner.position
 
-    def start(self, destination: Entity, source: Entity=None) -> None:
+    def start(self, destination: Entity, source: Entity = None) -> None:
         if self.destination:
             raise RuntimeError("already going somewhere")
 
@@ -244,7 +248,7 @@ class ResourceTransport(Component):
 
         caller = caller = inspect.stack()[1]
         logger.debug(
-            'stop',
+            "stop",
             caller=caller,
         )
         travel: Travel = ComponentManager.fetch(self.owner.id(), Travel)
@@ -274,7 +278,7 @@ class ResourceTransportSystem:
         resource_transport: ResourceTransport
         travel: Travel
 
-        for resource_transport, travel in entities: # type: ignore
+        for resource_transport, travel in entities:  # type: ignore
             if resource_transport.state == STATE_IDLE:
                 self.handle_idle(resource_transport, travel)
                 continue
@@ -372,11 +376,11 @@ class ResourceTransportSystem:
         if not destination:
             # TODO HERE MIGHT BE BUG?
             logger.debug(
-                'handle_loading.no_destination',
+                "handle_loading.no_destination",
                 resource_transport=resource_transport,
                 source=source,
                 owner=resource_transport.owner,
-                system=self.__class__.__name__
+                system=self.__class__.__name__,
             )
             resource_transport.stop()
             return
@@ -384,14 +388,18 @@ class ResourceTransportSystem:
         resource_transport.state_change(STATE_MOVING)
         travel.start(destination)
 
-    def handle_movement(self, resource_transport: ResourceTransport, worker_travel: Travel) -> None:
+    def handle_movement(
+        self, resource_transport: ResourceTransport, worker_travel: Travel
+    ) -> None:
         if resource_transport.direction == TRANSPORT_DIRECTION_SOURCE:
             if not resource_transport.source:
                 resource_transport.stop()
                 return
 
             source = resource_transport.source()
-            import pdb; pdb.set_trace()
+            import pdb
+
+            pdb.set_trace()
             if resource_transport.position() == source.position:
                 resource_transport.state_change(STATE_LOADING)
                 return
