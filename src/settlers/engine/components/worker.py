@@ -64,15 +64,21 @@ class Worker(Component):
             )
             return False
 
+        if not target.add_worker(self):
+            logger.debug(
+                "start_requested:failed",
+                target=target,
+                owner=self.owner,
+                component=self.__class__.__name__,
+            )
+            return False
+
         logger.debug(
             "start_requested",
             target=target,
             owner=self.owner,
             component=self.__class__.__name__,
         )
-
-        if not target.add_worker(self):
-            return False
 
         self.workplace = weakref.ref(target)
         return True

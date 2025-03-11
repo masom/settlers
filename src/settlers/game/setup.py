@@ -26,14 +26,14 @@ from settlers.entities.buildings.stone_workshop import (
 from settlers.entities.buildings.warehouse import build_warehouse_construction_site
 from settlers.entities.buildings.house import build_house
 
-from settlers.entities.characters.components.villager_ai_system import VillagerAiSystem
+from settlers.entities.characters.components.villager_ai_system import VillagerAi, VillagerAiSystem
 from settlers.entities.characters.villager import Villager
 
 
 def setup(world: World, options: dict) -> None:
     random.seed(world.random_seed)
 
-    world.add_system(VillagerAiSystem(world))
+    world.add_system(VillagerAiSystem())
     world.add_system(FactorySystem())
     world.add_system(GenerativeSystem())
     world.add_system(HarvesterSystem())
@@ -60,7 +60,7 @@ def setup(world: World, options: dict) -> None:
 
     if options["with_low_pop"]:
         workforce_plan = {
-            Harvester: 2,
+            Harvester: 4,
             SpawnerWorker: 1,
         }
     else:
@@ -81,6 +81,7 @@ def setup(world: World, options: dict) -> None:
                 (Position, 10 + i, 10 + i)
             )
 
+            """
             if task == Harvester:
                 task_info: tuple = (task, [], v.storages)
             elif task == ConstructionWorker:
@@ -89,6 +90,8 @@ def setup(world: World, options: dict) -> None:
                 task_info = task
 
             v.components.add(task_info)
+
+            """
 
             world.add_entity(v)
         del v

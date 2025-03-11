@@ -100,8 +100,7 @@ class SpawnerWorker(Worker):
 
 
 class Spawner(Factory):
-    exposed_as = "spawner"
-
+    pass
 
 class SpawnerSystem(FactorySystem):
     component_types = [Spawner]

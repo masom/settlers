@@ -1,23 +1,27 @@
 import random
 import structlog
 from collections import defaultdict
-from typing import Any, Callable, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-from settlers.engine.components import Component, ComponentProxy, ComponentManager
+from settlers.engine.components import Component, ComponentManager
 from settlers.engine.components.construction import Construction, ConstructionWorker
 from settlers.engine.components.factory import Factory, FactoryWorker
 from settlers.engine.components.harvesting import (
+    Harvestable,
     Harvester,
     STATE_FULL as HARVESTER_STATE_FULL,
     STATE_DELIVERING as HARVESTER_STATE_DELIVERING,
 )
 from settlers.engine.components.spawner import (
+    Spawner,
     SpawnerWorker,
 )
 from settlers.engine.components.inventory_routing import InventoryRouting
 from settlers.engine.components.movement import ResourceTransport, Travel
 
 from settlers.entities.buildings import Building
+from settlers.entities.characters.villager import Villager
+from settlers.engine.entities.entity import Entity
 
 STATE_IDLE = "idle"
 STATE_BUSY = "busy"
@@ -40,8 +44,10 @@ class VillagerAi(Component):
         if self._available_tasks:
             return self._available_tasks
 
+        owner_classes = self.owner.components.classes()
+
         for task in supported_tasks:
-            if task in self.owner.components.classes():
+            if task in owner_classes:
                 self._available_tasks.append(task)
 
         return self._available_tasks
@@ -73,7 +79,7 @@ class VillagerAi(Component):
 class VillagerAiSystem:
     component_types = (VillagerAi,)
 
-    def __init__(self, world: object) -> None:
+    def __init__(self) -> None:
         self.tasks: List[Type[Component]] = [
             Harvester,
             ConstructionWorker,
@@ -81,8 +87,50 @@ class VillagerAiSystem:
             SpawnerWorker,
         ]
 
-        self._awaiting_until: dict = {}
+        self._awaiting_until: Dict[VillagerAi, int] = {}
 
+    def on_entity_spawn(self, entity: Entity) -> None:
+        if isinstance(entity, Villager):
+            entity.components.add(VillagerAi)
+
+            self._allocate_jobs_to_villager(entity)
+
+    def _allocate_jobs_to_villager(self, villager: Villager):
+        workers: dict[type, int] = {}
+        sum: int = 1
+        current: int = 0
+        
+        for task in self.tasks:
+            current = len(ComponentManager[task])
+            workers[task] = current
+            sum += current
+
+        # Everyone can move stuff around
+        villager.components.add(ResourceTransport)
+
+        # TODO: Assign a subset of tasks when game is running for specialization
+        if workers[Harvester] < len(ComponentManager[Harvestable]):
+            proportion = 100 * float(workers[Harvester]) / float(sum)
+            if proportion < 0.1:
+                logger.debug(
+                    proportion=proportion,
+                    assigned_task=Harvester,
+                    villager=villager,
+                )
+
+                villager.components.add((Harvester, [], villager.storages))
+                return
+            
+        if workers[SpawnerWorker] < len(ComponentManager[Spawner]):
+            villager.components.add(SpawnerWorker)
+            return
+        
+        if workers[FactoryWorker] < len(ComponentManager[Factory]):
+            villager.components.add(FactoryWorker)
+            return
+
+        return
+    
     def handle_busy_harvester(self, villager: VillagerAi) -> None:
         harvester: Harvester = ComponentManager.fetch(villager.owner_id(), Harvester)
 
@@ -135,7 +183,6 @@ class VillagerAiSystem:
 
         harvester.assign_destination(destination)
 
-        # TODO: Maybe this is the issue?
         travel: Travel = ComponentManager.fetch(harvester.owner_id(), Travel)
         travel.stop()
 
@@ -168,14 +215,15 @@ class VillagerAiSystem:
     Find a random factory and check if it has resources available for transport.
     """
 
-    def resource_transport_for_villager(self, villager: VillagerAi) -> None:
+    def resource_transport_for_villager(self, villager_ai: VillagerAi) -> None:
         factories: List[Factory] = ComponentManager[Factory]
 
         # Sample will return len(factories) elements in random order
         for factory in random.sample(factories, len(factories)):
             source: Building = factory.owner
+            factory_inventory: InventoryRouting = ComponentManager.fetch(factory.owner_id(), InventoryRouting)
 
-            available_for_transport = source.inventory.available_for_transport()
+            available_for_transport = factory_inventory.available_for_transport()
 
             if not available_for_transport:
                 continue
@@ -187,12 +235,18 @@ class VillagerAiSystem:
             if not destination:
                 continue
 
+            villager: Villager = villager_ai.owner
+            
             # TODO this is a hack to automatically setup the transport inventory for routing
-            if isinstance(villager.owner.storages, defaultdict):
-                wants: set[type] = destination.inventory.wants_resources()
+            if isinstance(villager.storages, defaultdict):
+                destination_inventory: InventoryRouting = ComponentManager.fetch(destination.id(), InventoryRouting)
+                wants: set[type] = destination_inventory.wants_resources()
 
                 for want in wants:
-                    villager.owner.storages[want]
+                    villager.storages[want]
+
+            villager_resource_transport: ResourceTransport = ComponentManager.fetch(villager_ai.owner_id(), ResourceTransport)
+            villager_resource_transport.on_end(villager_ai.on_task_ended)
 
             logger.debug(
                 "resource_transport_for_villager:process_component_accepted",
@@ -200,16 +254,17 @@ class VillagerAiSystem:
                 task=ResourceTransport,
                 target=destination,
                 source=source,
-                villager=villager.owner,
-                valid_route=villager.owner.resource_transport.is_valid_route(
+                villager=villager,
+                valid_route=villager_resource_transport.is_valid_route(
                     destination
                 ),
             )
 
-            villager.owner.resource_transport.on_end(villager.on_task_ended)
-            villager.task = ResourceTransport
-            villager.state_change(STATE_BUSY)
-            villager.owner.resource_transport.start(destination, source)
+
+            villager_ai.task = ResourceTransport
+            villager_ai.state_change(STATE_BUSY)
+
+            villager_resource_transport.start(destination, source)
 
             return
 
@@ -229,7 +284,9 @@ class VillagerAiSystem:
             if origin == destination:
                 continue
 
-            wants: set[type] = destination.inventory.wants_resources()
+            destination_inventory: InventoryRouting = ComponentManager.fetch(location.owner_id(), InventoryRouting)
+
+            wants: set[type] = destination_inventory.wants_resources()
 
             if not wants:
                 continue
@@ -312,6 +369,8 @@ class VillagerAiSystem:
         available_tasks: List[Component] = villager.available_tasks(self.tasks)
 
         if not available_tasks:
+            self._allocate_jobs_to_villager(villager.owner)
+
             logger.debug(
                 "select_task:no_tasks",
                 system=self.__class__.__name__,

@@ -12,17 +12,17 @@ from settlers.engine.entities.resources.resource_storage import (
     ResourceStoragesType,
 )
 
-from settlers.entities.characters.components.villager_ai_system import VillagerAi
 from settlers.entities.renderable import Renderable
 
 from settlers.engine.components.movement import ResourceTransport
 from settlers.engine.components.harvesting import Harvester
+from settlers.engine.components.factory import FactoryWorker
 
 
 class Villager(Entity):
     __slots__ = ("name", "storages")
 
-    components = [VillagerAi, Travel, (Velocity, 2), (Renderable, "villager", 2)]
+    components = [Travel, (Velocity, 2), (Renderable, "villager", 2)]
 
     def __init__(self, name: Optional[str] = None):
         super().__init__()
@@ -40,10 +40,7 @@ class Villager(Entity):
 
         for component in components:
             self.components.add(component)
-
-        self.components.add(ResourceTransport)
-        self.components.add((Harvester, [], self.storages))
-
+        
     def _resource_storage_factory(self) -> ResourceStorage:
         return ResourceStorage(True, True, 1)
 

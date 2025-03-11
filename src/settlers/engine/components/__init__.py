@@ -131,66 +131,6 @@ class Components:
         return iter(self.components)
 
 
-class ComponentProxy:
-    __slots__ = ["_alias", "_component", "_exposed_methods", "_owner", "__weakref__"]
-
-    def __init__(self, owner, component):
-        self._component = component
-        self._exposed_methods = component.exposed_methods
-        self._owner = owner
-
-    """
-    Reveal the actual object being proxied.
-
-    :param type expected_type: Assert an instance of the provided type
-        will be returned
-    :return: The proxied component
-    """
-
-    def reveal(self, expected_type: Optional[type] = None) -> object:
-        if expected_type:
-            assert isinstance(
-                self._component, expected_type
-            ), "{component} should be {expected_type}, got {type}".format(
-                component=self._component,
-                expected_type=expected_type,
-                type=self._component.__class__,
-            )
-        return self._component
-
-    def __getattr__(self, attr: str):
-        if attr in self._exposed_methods:
-            return getattr(self._component, attr)
-        else:
-            exists = hasattr(self._component, attr)
-
-            if exists:
-                reason = "not exposed"
-            else:
-                reason = "not defined"
-
-            message = "`{attr}` {reason} on component `{component}`".format(
-                attr=attr, component=self._component.__class__, reason=reason
-            )
-            raise AttributeError(message)
-
-    def __eq__(self, other) -> bool:
-        if not other:
-            return False
-
-        return self._component == other._component
-
-    def __hasattr__(self, attr: str) -> bool:
-        return attr in self._exposed_methods
-
-    def __repr__(self) -> str:
-        return "<{klass}<{proxied}> methods={methods}>".format(
-            proxied=self._component,
-            klass=self.__class__.__name__,
-            methods=self._exposed_methods,
-        )
-
-
 ComponentsType = Dict[Type[Component], List[Component]]
 
 

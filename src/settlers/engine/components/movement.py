@@ -1,10 +1,8 @@
-import inspect
 import math
 import structlog
 from typing import List, Optional, Tuple, Type
 import weakref
 from collections import deque
-import inspect
 
 from . import Component, ComponentManager
 from ..entities.entity import Entity
@@ -45,19 +43,6 @@ class Travel(Component):
 
         self.destination: Optional[weakref.ReferenceType[Entity]] = None
 
-    def stuck_detection(self) -> None:
-        if self.destination:
-            self.past.append(self.destination())
-
-        if len(self.past) < 3:
-            return
-
-        same = set(self.past)
-        if len(same) == 1:
-            import pdb
-
-            pdb.set_trace()
-
     def start(self, destination: Entity) -> None:
         if self.destination:
             logger.error(
@@ -69,27 +54,10 @@ class Travel(Component):
             )
             raise RuntimeError("already moving somewhere")
 
-        caller = inspect.stack()[1]
-
-        logger.debug(
-            "start",
-            component=self.__class__.__name__,
-            caller=caller,
-            owner=self.owner,
-            destination=destination,
-        )
         self.destination = weakref.ref(destination)
         self.state_change(STATE_MOVING)
-        self.stuck_detection()
 
     def stop(self, skip_idle_state=False) -> None:
-        caller = inspect.stack()[1]
-        logger.debug(
-            "stop",
-            caller=caller,
-            owner=self.owner,
-        )
-        self.stuck_detection()
         self.destination = None
         super().stop(skip_idle_state)
 
@@ -246,11 +214,6 @@ class ResourceTransport(Component):
     def stop(self, skip_idle_state=False) -> None:
         super().stop(skip_idle_state=skip_idle_state)
 
-        caller = caller = inspect.stack()[1]
-        logger.debug(
-            "stop",
-            caller=caller,
-        )
         travel: Travel = ComponentManager.fetch(self.owner.id(), Travel)
         travel.stop()
 

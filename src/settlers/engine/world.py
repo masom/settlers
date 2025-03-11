@@ -1,4 +1,5 @@
-from typing import Optional, List, Tuple
+from collections import defaultdict
+from typing import Callable, Optional, List, Protocol, Tuple
 
 import structlog
 
@@ -8,20 +9,34 @@ from settlers.engine.entities.entity import Entity
 from settlers.engine.components import Component, ComponentManager
 
 
-# Harvester -> Travel -> ResourceTransport -> stop
+class SpawnHandler(Protocol):
+    def on_entity_spawn(self, entity: Entity) -> None: ...
+
+
 class World:
-    __slots__ = ("entities", "map", "random_seed", "systems")
+    __slots__ = ("entities", "callbacks", "map", "random_seed", "systems")
 
     def __init__(self, random_seed: Optional[int] = None, map=None) -> None:
         self.entities: list[Entity] = []
         self.systems: list = []
         self.random_seed = random_seed
+        self.callbacks = defaultdict(list)
 
-    def add_system(self, system: type) -> None:
+    def add_system(self, system: object) -> None:
         self.systems.append(system)
+
+        if hasattr(system, 'on_entity_spawn'):
+            spawn_handler: SpawnHandler = system
+            self.callbacks["on_entity_spawn"].append(spawn_handler.on_entity_spawn)
+        
 
     def add_entity(self, entity: Entity) -> None:
         self.entities.append(entity)
+
+        callbacks: List[Callable] = self.callbacks["on_entity_spawn"]
+
+        for callback in callbacks:
+            callback(entity)
 
     def initialize(self) -> None:
         for entity in self.entities:
