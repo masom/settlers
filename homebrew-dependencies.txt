@@ -1,3 +1,4 @@
 sdl2
 sld2_gfx
 sdl2_image
+sdl2_ttf

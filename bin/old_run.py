@@ -1,17 +1,22 @@
-import path_fix # noqa
+import path_fix  # noqa
 import names
 
 from settlers.entities.buildings import Building
 from settlers.entities.buildings.components.construction import (
-    Construction, ConstructionSpec
+    Construction,
+    ConstructionSpec,
 )
 from settlers.entities.buildings.components.occupancy import Occupancy
 from settlers.entities.buildings.components.transformer import (
-    Transformer, Pipeline, PipelineInput, PipelineOutput
+    Transformer,
+    Pipeline,
+    PipelineInput,
+    PipelineOutput,
 )
 
 from settlers.entities.characters.components.builder import (
-    Builder, BUILDER_ABILITY_CARPENTER
+    Builder,
+    BUILDER_ABILITY_CARPENTER,
 )
 from settlers.entities.characters.components.harvester import Harvester
 from settlers.entities.characters.components.transport import Transport
@@ -33,9 +38,7 @@ def build_construction_site(spec):
         storages,
     )
 
-    construction_site.components.add(
-        (Construction, spec)
-    )
+    construction_site.components.add((Construction, spec))
 
     return construction_site
 
@@ -48,29 +51,24 @@ def build_sawmill_construction_site(name):
 
     sawmill_pipelines = [
         Pipeline(
-            [
-                PipelineInput(1, TreeLog, sawmill_storages[TreeLog])
-            ],
+            [PipelineInput(1, TreeLog, sawmill_storages[TreeLog])],
             PipelineOutput(5, Lumber, sawmill_storages[Lumber]),
-            2
+            2,
         )
     ]
 
-    return build_construction_site(ConstructionSpec(
-        [
-            (Occupancy, 1),
-            (Transformer, sawmill_pipelines)
-        ],
-        [
-            BUILDER_ABILITY_CARPENTER
-        ],
-        {
-            Lumber: 10,
-        },
-        4,
-        "Jello's Sawmill",
-        sawmill_storages
-    ))
+    return build_construction_site(
+        ConstructionSpec(
+            [(Occupancy, 1), (Transformer, sawmill_pipelines)],
+            [BUILDER_ABILITY_CARPENTER],
+            {
+                Lumber: 10,
+            },
+            4,
+            "Jello's Sawmill",
+            sawmill_storages,
+        )
+    )
 
 
 def build_sawmill(name):
@@ -81,18 +79,13 @@ def build_sawmill(name):
 
     sawmill_pipelines = [
         Pipeline(
-            [
-                PipelineInput(1, TreeLog, sawmill_storages[TreeLog])
-            ],
+            [PipelineInput(1, TreeLog, sawmill_storages[TreeLog])],
             PipelineOutput(5, Lumber, sawmill_storages[Lumber]),
-            2
+            2,
         )
     ]
 
-    sawmill = Building(
-        "{name}'s Sawmill".format(name=name),
-        sawmill_storages
-    )
+    sawmill = Building("{name}'s Sawmill".format(name=name), sawmill_storages)
 
     sawmill.components.add((Occupancy, 1))
     sawmill.components.add((Transformer, sawmill_pipelines))
@@ -100,15 +93,12 @@ def build_sawmill(name):
     return sawmill
 
 
-sawmill = build_sawmill('Bob')
-construction_site = build_sawmill_construction_site('Jello')
+sawmill = build_sawmill("Bob")
+construction_site = build_sawmill_construction_site("Jello")
 
 tree = Tree(5, 100)
 
-buildings = [
-    sawmill,
-    construction_site
-]
+buildings = [sawmill, construction_site]
 
 resources = [
     tree,

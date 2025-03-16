@@ -102,6 +102,7 @@ class SpawnerWorker(Worker):
 class Spawner(Factory):
     pass
 
+
 class SpawnerSystem(FactorySystem):
     component_types = [Spawner]
 

@@ -40,7 +40,7 @@ class Villager(Entity):
 
         for component in components:
             self.components.add(component)
-        
+
     def _resource_storage_factory(self) -> ResourceStorage:
         return ResourceStorage(True, True, 1)
 

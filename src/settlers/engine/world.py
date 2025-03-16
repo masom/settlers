@@ -3,10 +3,12 @@ from typing import Callable, Optional, List, Protocol, Tuple
 
 import structlog
 
+
 logger = structlog.get_logger("engine.world")
 
 from settlers.engine.entities.entity import Entity
 from settlers.engine.components import Component, ComponentManager
+from settlers.entities.map import Map
 
 
 class SpawnHandler(Protocol):
@@ -16,19 +18,19 @@ class SpawnHandler(Protocol):
 class World:
     __slots__ = ("entities", "callbacks", "map", "random_seed", "systems")
 
-    def __init__(self, random_seed: Optional[int] = None, map=None) -> None:
+    def __init__(self, random_seed: Optional[int] = None, map: Map = None) -> None:
         self.entities: list[Entity] = []
         self.systems: list = []
         self.random_seed = random_seed
         self.callbacks = defaultdict(list)
+        self.map: Map = map
 
     def add_system(self, system: object) -> None:
         self.systems.append(system)
 
-        if hasattr(system, 'on_entity_spawn'):
+        if hasattr(system, "on_entity_spawn"):
             spawn_handler: SpawnHandler = system
             self.callbacks["on_entity_spawn"].append(spawn_handler.on_entity_spawn)
-        
 
     def add_entity(self, entity: Entity) -> None:
         self.entities.append(entity)

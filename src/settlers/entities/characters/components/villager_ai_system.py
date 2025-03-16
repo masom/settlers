@@ -99,7 +99,7 @@ class VillagerAiSystem:
         workers: dict[type, int] = {}
         sum: int = 1
         current: int = 0
-        
+
         for task in self.tasks:
             current = len(ComponentManager[task])
             workers[task] = current
@@ -120,17 +120,17 @@ class VillagerAiSystem:
 
                 villager.components.add((Harvester, [], villager.storages))
                 return
-            
+
         if workers[SpawnerWorker] < len(ComponentManager[Spawner]):
             villager.components.add(SpawnerWorker)
             return
-        
+
         if workers[FactoryWorker] < len(ComponentManager[Factory]):
             villager.components.add(FactoryWorker)
             return
 
         return
-    
+
     def handle_busy_harvester(self, villager: VillagerAi) -> None:
         harvester: Harvester = ComponentManager.fetch(villager.owner_id(), Harvester)
 
@@ -221,7 +221,9 @@ class VillagerAiSystem:
         # Sample will return len(factories) elements in random order
         for factory in random.sample(factories, len(factories)):
             source: Building = factory.owner
-            factory_inventory: InventoryRouting = ComponentManager.fetch(factory.owner_id(), InventoryRouting)
+            factory_inventory: InventoryRouting = ComponentManager.fetch(
+                factory.owner_id(), InventoryRouting
+            )
 
             available_for_transport = factory_inventory.available_for_transport()
 
@@ -236,16 +238,20 @@ class VillagerAiSystem:
                 continue
 
             villager: Villager = villager_ai.owner
-            
+
             # TODO this is a hack to automatically setup the transport inventory for routing
             if isinstance(villager.storages, defaultdict):
-                destination_inventory: InventoryRouting = ComponentManager.fetch(destination.id(), InventoryRouting)
+                destination_inventory: InventoryRouting = ComponentManager.fetch(
+                    destination.id(), InventoryRouting
+                )
                 wants: set[type] = destination_inventory.wants_resources()
 
                 for want in wants:
                     villager.storages[want]
 
-            villager_resource_transport: ResourceTransport = ComponentManager.fetch(villager_ai.owner_id(), ResourceTransport)
+            villager_resource_transport: ResourceTransport = ComponentManager.fetch(
+                villager_ai.owner_id(), ResourceTransport
+            )
             villager_resource_transport.on_end(villager_ai.on_task_ended)
 
             logger.debug(
@@ -255,11 +261,8 @@ class VillagerAiSystem:
                 target=destination,
                 source=source,
                 villager=villager,
-                valid_route=villager_resource_transport.is_valid_route(
-                    destination
-                ),
+                valid_route=villager_resource_transport.is_valid_route(destination),
             )
-
 
             villager_ai.task = ResourceTransport
             villager_ai.state_change(STATE_BUSY)
@@ -284,7 +287,9 @@ class VillagerAiSystem:
             if origin == destination:
                 continue
 
-            destination_inventory: InventoryRouting = ComponentManager.fetch(location.owner_id(), InventoryRouting)
+            destination_inventory: InventoryRouting = ComponentManager.fetch(
+                location.owner_id(), InventoryRouting
+            )
 
             wants: set[type] = destination_inventory.wants_resources()
 

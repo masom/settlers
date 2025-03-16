@@ -2,6 +2,7 @@
 import itertools
 import pathlib
 import random
+from typing import Optional
 import sdl2
 import sdl2.ext
 import signal
@@ -10,7 +11,8 @@ import structlog
 from settlers.engine.entities.position import Position
 from settlers.entities.map import Map
 from settlers.entities.renderable import Renderable
-from settlers.game.setup import setup
+from settlers.engine.world import World
+
 
 logger = structlog.get_logger("game.manager")
 
@@ -74,7 +76,15 @@ class RenderSystem:
 
 
 class Manager:
+    """
+    UI system manager
+
+    Responsible for coordinating rendering logic with SDL2
+    """
+
     def __init__(self):
+        self.setup_signals()
+
         sdl2.ext.init()
 
         sdl2.SDL_SetHint(sdl2.SDL_HINT_RENDER_SCALE_QUALITY, b"1")
@@ -94,8 +104,6 @@ class Manager:
             self.window
         )
 
-        self.setup_signals()
-
     def setup_signals(self):
         def wrap_terminate(signum, stackframe):
             self.terminate(signum, stackframe)
@@ -103,22 +111,17 @@ class Manager:
         signal.signal(signal.SIGINT, wrap_terminate)
         signal.signal(signal.SIGTERM, wrap_terminate)
 
-    def initialize(self, world, options: dict):
+    def boot(self):
+
         self.window.show()
         sdl2.SDL_RaiseWindow(self.window.window)
 
-        self.world = world
-
-        setup(self.world, options)
-
-        self.world.initialize()
-
         self.render_system = RenderSystem(self.sprite_renderer, self.sprite_factory)
 
-        self.map = Map()
-        self.map.generate()
+    def start(self, world: World, map: Map):
+        self.world: World = world
+        self.map: Map = map
 
-    def start(self):
         self.running = True
         last = 0
         frame_duration = 1.0 / 120 * 1000
