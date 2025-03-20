@@ -1,5 +1,4 @@
 import structlog
-import weakref
 from typing import List, Optional, Type, Tuple
 
 from settlers.engine.components import ComponentManager

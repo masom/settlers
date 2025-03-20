@@ -1,8 +1,8 @@
-from typing import Dict, List, Optional, Tuple 
+from typing import Dict, List, Optional, Tuple
 import sdl2
 import structlog
 
-from sdl2.ext.sprite import Sprite 
+from sdl2.ext.sprite import Sprite
 
 from settlers.engine.components import Component
 from settlers.engine.entities.entity import Entity
@@ -23,10 +23,31 @@ LABELS = [LABEL_ID, LABEL_TASK, LABEL_NAME, LABEL_TEAM]
 LABEL_COLOR_TASK: RGBA = (200, 200, 200, 255)
 LABEL_COLOR_NAME: RGBA = (255, 200, 200, 255)
 
-class Label:
-    __slots__ = ("id", "background", "border", "color", "position", "rect", "shadow", "text", "_texture", "_rect")
 
-    def __init__(self, id: str, text: str, color: RGBA, background: Optional[RGBA]=None, border: Optional[RGBA]=None, position: str = "bottom", shadow: bool = False) -> None:
+class Label:
+    __slots__ = (
+        "id",
+        "background",
+        "border",
+        "color",
+        "position",
+        "rect",
+        "shadow",
+        "text",
+        "_texture",
+        "_rect",
+    )
+
+    def __init__(
+        self,
+        id: str,
+        text: str,
+        color: RGBA,
+        background: Optional[RGBA] = None,
+        border: Optional[RGBA] = None,
+        position: str = "bottom",
+        shadow: bool = False,
+    ) -> None:
         self.id: str = id
         self.background: Optional[sdl2.SDL_Color]
 
@@ -37,16 +58,18 @@ class Label:
 
         if background:
             (r, g, b, a) = background
-            self.background =  sdl2.SDL_Color(r, g, b, a)
+            self.background = sdl2.SDL_Color(r, g, b, a)
         else:
             self.background = None
 
         self.border: Optional[sdl2.SDL_Color]
 
         if border:
-            import pdb; pdb.set_trace()
-            (r, g, b, a) = border 
-            self.border =  sdl2.SDL_Color(r, g, b, a)
+            import pdb
+
+            pdb.set_trace()
+            (r, g, b, a) = border
+            self.border = sdl2.SDL_Color(r, g, b, a)
         else:
             self.border = None
 
@@ -58,21 +81,28 @@ class Label:
 
 
 class RenderableLabelCache:
-    __slots__ = ("labels")
+    __slots__ = "labels"
 
     def __init__(self) -> None:
         self.labels: Dict[str, Label] = {}
 
-    def get(self, id: str, text: str, color: RGBA, background: Optional[RGBA]=None, border: Optional[RGBA]=None, position: str = "bottom", shadow: bool = False) -> Label:
+    def get(
+        self,
+        id: str,
+        text: str,
+        color: RGBA,
+        background: Optional[RGBA] = None,
+        border: Optional[RGBA] = None,
+        position: str = "bottom",
+        shadow: bool = False,
+    ) -> Label:
         key = f"{id}-{text}-{color}-{background}-{border}-{position}-{shadow}"
 
         logger.debug(key)
 
         label = self.labels.get(key, None)
         if not label:
-            label = Label(
-                id, text, color, background, border, position, shadow
-            )
+            label = Label(id, text, color, background, border, position, shadow)
             self.labels[key] = label
 
         return label
@@ -80,7 +110,9 @@ class RenderableLabelCache:
     def reset(self) -> None:
         self.labels: Dict[str, Label] = {}
 
+
 label_cache = RenderableLabelCache()
+
 
 class Renderable(Component):
     __slots__ = ("rect", "labels", "sprite", "type", "z")
@@ -94,13 +126,13 @@ class Renderable(Component):
         self.z: int = z
 
         self.labels: Dict[str, Label] = {}
-        
+
     def add_label(self, label: Label) -> None:
-        self.labels[label.id] = label 
+        self.labels[label.id] = label
 
     def remove_label(self, id: str) -> None:
         self.labels[id] = None
-        del(self.labels[id])
+        del self.labels[id]
 
     def reset(self, new_type: str) -> None:
         logger.debug(

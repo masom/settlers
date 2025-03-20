@@ -1,7 +1,7 @@
 import random
 import structlog
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, List, Optional, Tuple, Type
 
 from settlers.engine.components import Component, ComponentManager
 from settlers.engine.components.construction import Construction, ConstructionWorker
@@ -27,7 +27,7 @@ from settlers.entities.renderable import (
     Renderable,
     label_cache as RenderableLabelCache,
     LABEL_TASK as RENDERABLE_LABEL_TASK,
-    LABEL_COLOR_TASK as RENDERABLE_LABEL_COLOR_TASK
+    LABEL_COLOR_TASK as RENDERABLE_LABEL_COLOR_TASK,
 )
 
 STATE_IDLE = "idle"
@@ -72,8 +72,8 @@ class VillagerAi(Component):
         label = RenderableLabelCache.get(
             RENDERABLE_LABEL_TASK,
             f"Assigned {self.task.__name__}",
-            RENDERABLE_LABEL_COLOR_TASK
-        ) 
+            RENDERABLE_LABEL_COLOR_TASK,
+        )
         renderable.add_label(label)
 
     def on_task_started(self) -> None:
@@ -82,11 +82,11 @@ class VillagerAi(Component):
         renderable = ComponentManager.fetch_optional(self.owner_id(), Renderable)
         if not renderable:
             return
-        
+
         label = RenderableLabelCache.get(
             RENDERABLE_LABEL_TASK,
             f"Started {self.task.__name__}",
-            RENDERABLE_LABEL_COLOR_TASK
+            RENDERABLE_LABEL_COLOR_TASK,
         )
         renderable.add_label(label)
 
@@ -98,9 +98,8 @@ class VillagerAi(Component):
         renderable = ComponentManager.fetch_optional(self.owner_id(), Renderable)
         if not renderable:
             return
-        
-        renderable.remove_label(RENDERABLE_LABEL_TASK)
 
+        renderable.remove_label(RENDERABLE_LABEL_TASK)
 
     def state_change(self, new_state: str) -> None:
         if self.state == new_state:
@@ -351,9 +350,7 @@ class VillagerAiSystem:
                 destinations_by_priority["high"].append(destination)
                 continue
 
-            factory = ComponentManager.fetch_optional(
-                destination.id(), Factory
-            )
+            factory = ComponentManager.fetch_optional(destination.id(), Factory)
             if factory:
                 destinations_by_priority["normal"].append(destination)
                 continue

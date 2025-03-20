@@ -1,14 +1,12 @@
 from collections import defaultdict
-from typing import Callable, Optional, List, Protocol, Tuple
+from typing import Callable, Optional, List, Protocol
 
 import structlog
-
-
-logger = structlog.get_logger("engine.world")
-
 from settlers.engine.entities.entity import Entity
 from settlers.engine.components import Component, ComponentManager
 from settlers.entities.map import Map
+
+logger = structlog.get_logger("engine.world")
 
 
 class SpawnHandler(Protocol):

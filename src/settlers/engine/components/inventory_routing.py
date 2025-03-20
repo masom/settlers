@@ -68,8 +68,6 @@ class InventoryRouting(Component):
         if len(self.owner.storages) == 0:
             return False
 
-        enabled = False
-
         for storage in self.owner.storages.values():
             if not storage.allows_incoming:
                 continue

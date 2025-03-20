@@ -1,5 +1,4 @@
 import random
-from collections import defaultdict
 
 from settlers.engine.world import World
 
@@ -27,7 +26,6 @@ from settlers.entities.buildings.warehouse import build_warehouse_construction_s
 from settlers.entities.buildings.house import build_house
 
 from settlers.entities.characters.components.villager_ai_system import (
-    VillagerAi,
     VillagerAiSystem,
 )
 from settlers.entities.characters.villager import Villager

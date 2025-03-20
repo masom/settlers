@@ -7,7 +7,7 @@ import sdl2.sdlttf
 from sdl2.ext.sprite import Sprite
 import signal
 import structlog
-from typing import Dict, List 
+from typing import Dict, List
 
 from settlers.engine.entities.position import Position
 from settlers.entities.map import Map, MapTile
@@ -23,7 +23,9 @@ class TextCache:
         logger.info("Init TTF")
         sdl2.sdlttf.TTF_Init()
 
-        self.font: sdl2.sdlttf.TTF_Font = sdl2.sdlttf.TTF_OpenFont(b"RobotoMono-Regular.ttf", 12)
+        self.font: sdl2.sdlttf.TTF_Font = sdl2.sdlttf.TTF_OpenFont(
+            b"RobotoMono-Regular.ttf", 12
+        )
         self.cache: Dict[str, sdl2.ext.renderer.Texture] = {}
         self.renderer: sdl2.ext.renderer.Renderer = renderer
 
@@ -34,10 +36,12 @@ class TextCache:
         if existing:
             return existing
 
-        surface: sdl2.SDL_Surface = sdl2.sdlttf.TTF_RenderText_Solid(self.font, string.encode('utf-8'), color)
+        surface: sdl2.SDL_Surface = sdl2.sdlttf.TTF_RenderText_Solid(
+            self.font, string.encode("utf-8"), color
+        )
         if not surface:
             error = sdl2.sdlttf.TTF_GetError()
-            logger.error('TextCache TTF_RenderText_Solid error', error=error)
+            logger.error("TextCache TTF_RenderText_Solid error", error=error)
             raise RuntimeError(error)
 
         texture = sdl2.ext.renderer.Texture(self.renderer, surface)
@@ -50,8 +54,8 @@ class TextCache:
             texture.destroy()
 
         self.cache = {}
-        
-    
+
+
 class RenderSystem:
     component_types = (Renderable, Position)
 
@@ -80,7 +84,9 @@ class RenderSystem:
         "tile": ["hexagon_tiles/tiles/terrain/grass/grass_05.png"],
     }
 
-    def __init__(self, renderer: sdl2.ext.Renderer, sprite_factory: sdl2.ext.SpriteFactory):
+    def __init__(
+        self, renderer: sdl2.ext.Renderer, sprite_factory: sdl2.ext.SpriteFactory
+    ):
         self.renderer: sdl2.ext.Renderer = renderer
         self.sprite_factory: sdl2.ext.SpriteFactory = sprite_factory
         self.text_cache = TextCache(renderer)
@@ -123,6 +129,7 @@ class RenderSystem:
         renderable.sprite.x = position.x
         renderable.sprite.y = position.y
 
+
 class Manager:
     """
     UI system manager
@@ -139,7 +146,9 @@ class Manager:
 
         window_flags = sdl2.video.SDL_WINDOW_BORDERLESS & sdl2.video.SDL_WINDOW_SHOWN
 
-        self.window: sdl2.ext.Window = sdl2.ext.Window("Settlers", size=(800, 600), flags=window_flags)
+        self.window: sdl2.ext.Window = sdl2.ext.Window(
+            "Settlers", size=(800, 600), flags=window_flags
+        )
 
         self.renderer: sdl2.ext.Renderer = sdl2.ext.Renderer(self.window)
 
@@ -163,7 +172,9 @@ class Manager:
         self.window.show()
         sdl2.SDL_RaiseWindow(self.window.window)
 
-        self.render_system: RenderSystem = RenderSystem(self.sprite_renderer, self.sprite_factory)
+        self.render_system: RenderSystem = RenderSystem(
+            self.sprite_renderer, self.sprite_factory
+        )
 
     def start(self, world: World):
         self.world: World = world
@@ -183,7 +194,7 @@ class Manager:
             tile.initialize()
             tiles.append(
                 [
-                component
+                    component
                     for component in tile.components
                     if component.__class__ in self.render_system.component_types
                 ]
