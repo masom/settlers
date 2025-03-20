@@ -1,0 +1,16 @@
+[project]
+name = "settlers"
+version = "2025.3.0"
+requires-python = ">= 3.12"
+dependencies = [
+    "colorama",
+    "names",
+    "pysdl2",
+    "structlog",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+]

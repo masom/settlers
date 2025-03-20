@@ -22,6 +22,13 @@ from settlers.engine.components.movement import ResourceTransport, Travel
 from settlers.entities.buildings import Building
 from settlers.entities.characters.villager import Villager
 from settlers.engine.entities.entity import Entity
+from settlers.entities.renderable import (
+    Label as RenderableLabel,
+    Renderable,
+    label_cache as RenderableLabelCache,
+    LABEL_TASK as RENDERABLE_LABEL_TASK,
+    LABEL_COLOR_TASK as RENDERABLE_LABEL_COLOR_TASK
+)
 
 STATE_IDLE = "idle"
 STATE_BUSY = "busy"
@@ -32,10 +39,10 @@ logger = structlog.get_logger("game.villager_ai")
 class VillagerAi(Component):
     __slots__ = ("_available_tasks", "state", "task")
 
-    def __init__(self, owner):
+    def __init__(self, owner) -> None:
         super().__init__(owner)
-        self.state = STATE_IDLE
-        self.task: Component = None
+        self.state: str = STATE_IDLE
+        self.task: Optional[Type[Component]] = None
         self._available_tasks: List[Type[Component]] = []
 
     def available_tasks(
@@ -52,10 +59,48 @@ class VillagerAi(Component):
 
         return self._available_tasks
 
-    def on_task_ended(self, component: Component) -> None:
-        logger.info("on_task_ended", component=component)
+    def on_task_assigned(self, task: type[Component]) -> None:
+        logger.debug("on_task_assigned", task=self.task, owner_id=self.owner_id())
+
+        self.task = task
+        self.state_change(STATE_BUSY)
+
+        renderable = ComponentManager.fetch_optional(self.owner_id(), Renderable)
+        if not renderable:
+            return
+
+        label = RenderableLabelCache.get(
+            RENDERABLE_LABEL_TASK,
+            f"Assigned {self.task.__name__}",
+            RENDERABLE_LABEL_COLOR_TASK
+        ) 
+        renderable.add_label(label)
+
+    def on_task_started(self) -> None:
+        logger.info("on_task_started", component=self.task, owner_id=self.owner_id())
+
+        renderable = ComponentManager.fetch_optional(self.owner_id(), Renderable)
+        if not renderable:
+            return
+        
+        label = RenderableLabelCache.get(
+            RENDERABLE_LABEL_TASK,
+            f"Started {self.task.__name__}",
+            RENDERABLE_LABEL_COLOR_TASK
+        )
+        renderable.add_label(label)
+
+    def on_task_ended(self) -> None:
+        logger.info("on_task_ended", task=self.task)
         self.task = None
         self.state_change(STATE_IDLE)
+
+        renderable = ComponentManager.fetch_optional(self.owner_id(), Renderable)
+        if not renderable:
+            return
+        
+        renderable.remove_label(RENDERABLE_LABEL_TASK)
+
 
     def state_change(self, new_state: str) -> None:
         if self.state == new_state:
@@ -264,8 +309,7 @@ class VillagerAiSystem:
                 valid_route=villager_resource_transport.is_valid_route(destination),
             )
 
-            villager_ai.task = ResourceTransport
-            villager_ai.state_change(STATE_BUSY)
+            villager_ai.on_task_assigned(ResourceTransport)
 
             villager_resource_transport.start(destination, source)
 
@@ -299,11 +343,18 @@ class VillagerAiSystem:
             if resource not in wants:
                 continue
 
-            if hasattr(destination, Construction.exposed_as):
+            construction = ComponentManager.fetch_optional(
+                destination.id(), Construction
+            )
+
+            if construction:
                 destinations_by_priority["high"].append(destination)
                 continue
 
-            if hasattr(destination, Factory.exposed_as):
+            factory = ComponentManager.fetch_optional(
+                destination.id(), Factory
+            )
+            if factory:
                 destinations_by_priority["normal"].append(destination)
                 continue
 
@@ -323,6 +374,7 @@ class VillagerAiSystem:
                 priority=priority,
             )
             return destination
+        return
 
     def process(self, tick: int, villagers: List[VillagerAi]) -> None:
         self.current_tick = tick
@@ -345,7 +397,7 @@ class VillagerAiSystem:
                 self.handle_idle_villager(villager)
                 continue
 
-            component: Component = ComponentManager.fetch(villager.owner_id(), task)
+            component = ComponentManager.fetch(villager.owner_id(), task)
 
             if component.start(target):
                 logger.debug(
@@ -357,9 +409,7 @@ class VillagerAiSystem:
                 )
 
                 component.on_end(villager.on_task_ended)
-
-                villager.task = task
-                villager.state_change(STATE_BUSY)
+                villager.on_task_assigned(task)
             else:
                 logger.debug(
                     "process_component_rejected",

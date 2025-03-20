@@ -11,10 +11,10 @@ STATE_IDLE = "idle"
 class Component:
     __slots__ = ("_on_end_callbacks", "owner", "state", "__weakref__")
 
-    def __init__(self, owner) -> None:
+    def __init__(self, owner: object) -> None:
         self._on_end_callbacks: List[Callable] = []
-        self.owner = owner
-        self.state = STATE_IDLE
+        self.owner: object = owner
+        self.state: str = STATE_IDLE
 
     def owner_id(self) -> int:
         return id(self.owner)

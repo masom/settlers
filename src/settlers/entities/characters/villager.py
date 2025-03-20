@@ -13,10 +13,7 @@ from settlers.engine.entities.resources.resource_storage import (
 )
 
 from settlers.entities.renderable import Renderable
-
-from settlers.engine.components.movement import ResourceTransport
-from settlers.engine.components.harvesting import Harvester
-from settlers.engine.components.factory import FactoryWorker
+from settlers.engine.components import Component
 
 
 class Villager(Entity):
@@ -35,7 +32,10 @@ class Villager(Entity):
         )
         self.name = name
 
-    def on_spawn(self, components: List):
+    def on_death(self) -> None:
+        pass
+
+    def on_spawn(self, components: List[Component]):
         self.initialize()
 
         for component in components:

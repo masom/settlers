@@ -258,15 +258,6 @@ class Harvestable(Component):
         "ticks_per_cycle",
     )
 
-    exposed_as = "harvesting"
-    exposed_methods = (
-        "add_worker",
-        "can_add_worker",
-        "output",
-        "provides",
-        "remove_worker",
-    )
-
     def __init__(
         self,
         owner,

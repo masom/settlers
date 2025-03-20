@@ -1,3 +1,4 @@
+from typing import List
 from settlers.engine.entities.entity import Entity
 from settlers.engine.entities.position import Position
 
@@ -9,20 +10,20 @@ class MapTile(Entity):
 
     components = []
 
-    def __init__(self, row, column):
+    def __init__(self, row: int, column: int) -> None:
         self.sprite = None
         self.row = row
         self.column = column
 
         super().__init__()
 
-    def initialize(self):
+    def initialize(self) -> None:
         self.components.add((Renderable, "tile", 0))
         self.components.add((Position, self.row * 120, self.column * 140))
 
         super().initialize()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         position = getattr(self, "position", None)
         if not position:
             position = (self.row * 120, self.column * 140)
@@ -37,11 +38,11 @@ class MapTile(Entity):
 
 
 class Map:
-    def __init__(self):
-        self.x = int(800 / 120)
-        self.y = int(600 / 140)
+    def __init__(self) -> None:
+        self.x: int = int(800 / 120)
+        self.y: int = int(600 / 140)
 
-    def generate(self):
+    def generate(self) -> None:
         tiles = []
         for x in range(self.x):
             row = []
@@ -50,4 +51,4 @@ class Map:
                 row.append(MapTile(x, y))
             tiles.append(row)
 
-        self.tiles = tiles
+        self.tiles: List[MapTile] = tiles

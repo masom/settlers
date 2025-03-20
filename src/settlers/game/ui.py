@@ -1,24 +1,59 @@
-# ~ coding: utf-8 ~
 import itertools
 import pathlib
 import random
-from typing import Optional
 import sdl2
-import sdl2.ext
+import sdl2.ext.renderer
+import sdl2.sdlttf
+from sdl2.ext.sprite import Sprite
 import signal
 import structlog
+from typing import Dict, List 
 
 from settlers.engine.entities.position import Position
-from settlers.entities.map import Map
+from settlers.entities.map import Map, MapTile
 from settlers.entities.renderable import Renderable
 from settlers.engine.world import World
-
+from settlers.engine.components import Component
 
 logger = structlog.get_logger("game.manager")
 
 
+class TextCache:
+    def __init__(self, renderer: sdl2.ext.renderer.Renderer):
+        logger.info("Init TTF")
+        sdl2.sdlttf.TTF_Init()
+
+        self.font: sdl2.sdlttf.TTF_Font = sdl2.sdlttf.TTF_OpenFont(b"RobotoMono-Regular.ttf", 12)
+        self.cache: Dict[str, sdl2.ext.renderer.Texture] = {}
+        self.renderer: sdl2.ext.renderer.Renderer = renderer
+
+    def get(self, string: str, color: sdl2.SDL_Color) -> sdl2.ext.renderer.Texture:
+        key = f"{string}-{color.r}{color.g}{color.b}"
+
+        existing = self.cache.get(key, None)
+        if existing:
+            return existing
+
+        surface: sdl2.SDL_Surface = sdl2.sdlttf.TTF_RenderText_Solid(self.font, string.encode('utf-8'), color)
+        if not surface:
+            error = sdl2.sdlttf.TTF_GetError()
+            logger.error('TextCache TTF_RenderText_Solid error', error=error)
+            raise RuntimeError(error)
+
+        texture = sdl2.ext.renderer.Texture(self.renderer, surface)
+
+        self.cache[key] = texture
+        return texture
+
+    def clear(self) -> None:
+        for texture in self.cache.values():
+            texture.destroy()
+
+        self.cache = {}
+        
+    
 class RenderSystem:
-    component_types = [Renderable, Position]
+    component_types = (Renderable, Position)
 
     sprites = {
         "villager": [
@@ -45,35 +80,48 @@ class RenderSystem:
         "tile": ["hexagon_tiles/tiles/terrain/grass/grass_05.png"],
     }
 
-    def __init__(self, renderer: sdl2.ext.Renderer, sprite_factory):
+    def __init__(self, renderer: sdl2.ext.Renderer, sprite_factory: sdl2.ext.SpriteFactory):
         self.renderer: sdl2.ext.Renderer = renderer
-        self.sprite_factory = sprite_factory
+        self.sprite_factory: sdl2.ext.SpriteFactory = sprite_factory
+        self.text_cache = TextCache(renderer)
 
-    def load_sprite(self, sprite_file: str):
+    def load_sprite(self, sprite_file: str) -> Sprite:
         path = pathlib.Path(__file__).parent / "resources" / "png"
         path = path / sprite_file
 
         return self.sprite_factory.from_image(str(path))
 
-    def process(self, ticks: int, renderables: list):
+    def process(self, ticks: int, renderables: list[Component]):
         if not hasattr(self, "_previous_ticks"):
             self._previous_ticks = ticks
 
-        z_sprites: list[list] = [[], [], [], []]
+        z_sprites: list[list[Sprite]] = [[], [], [], []]
 
         for renderable, position in renderables:
-            if not renderable.sprite:
-                t = renderable.type
-                sprite_path = random.choice(self.sprites[t])
-                renderable.sprite = self.load_sprite(sprite_path)
-
-            renderable.sprite.x = position.x
-            renderable.sprite.y = position.y
+            self.update_renderable(renderable, position)
 
             z_sprites[renderable.z].append(renderable.sprite)
 
         self.renderer.render(sprites=list(itertools.chain.from_iterable(z_sprites)))
 
+    def update_renderable(self, renderable: Renderable, position: Position) -> None:
+        if not renderable.sprite:
+            t = renderable.type
+            sprite_path = random.choice(self.sprites[t])
+            renderable.sprite = self.load_sprite(sprite_path)
+
+        for label in renderable.labels.values():
+            texture: sdl2.ext.Texture = self.text_cache.get(label.text, label.color)
+
+        if not renderable.sprite:
+            # TODO: Create a rect, apply the base texture, apply labels
+            texture = sdl2.ext.Texture(self.renderer)
+
+            sprite = sdl2.ext.TextureSprite(texture)
+            renderable.sprite = sprite
+
+        renderable.sprite.x = position.x
+        renderable.sprite.y = position.y
 
 class Manager:
     """
@@ -91,9 +139,9 @@ class Manager:
 
         window_flags = sdl2.video.SDL_WINDOW_BORDERLESS & sdl2.video.SDL_WINDOW_SHOWN
 
-        self.window = sdl2.ext.Window("Settlers", size=(800, 600), flags=window_flags)
+        self.window: sdl2.ext.Window = sdl2.ext.Window("Settlers", size=(800, 600), flags=window_flags)
 
-        self.renderer = sdl2.ext.Renderer(self.window)
+        self.renderer: sdl2.ext.Renderer = sdl2.ext.Renderer(self.window)
 
         self.sprite_factory = sdl2.ext.SpriteFactory(
             sdl2.ext.TEXTURE,
@@ -112,39 +160,41 @@ class Manager:
         signal.signal(signal.SIGTERM, wrap_terminate)
 
     def boot(self):
-
         self.window.show()
         sdl2.SDL_RaiseWindow(self.window.window)
 
-        self.render_system = RenderSystem(self.sprite_renderer, self.sprite_factory)
+        self.render_system: RenderSystem = RenderSystem(self.sprite_renderer, self.sprite_factory)
 
-    def start(self, world: World, map: Map):
+    def start(self, world: World):
         self.world: World = world
-        self.map: Map = map
+        self.map: Map = self.world.map
 
-        self.running = True
-        last = 0
-        frame_duration = 1.0 / 120 * 1000
+        self.running: bool = True
+        last: int = 0
+        frame_duration: float = 1.0 / 120 * 1000
 
         renderer = self.renderer
         world = self.world
 
-        tiles = []
+        tiles: List[MapTile] = []
+        tile: MapTile
+
         for tile in itertools.chain.from_iterable(self.map.tiles):
             tile.initialize()
             tiles.append(
                 [
-                    component
+                component
                     for component in tile.components
                     if component.__class__ in self.render_system.component_types
                 ]
             )
 
         while self.running:
-            start = sdl2.SDL_GetTicks()
+            start: int = sdl2.SDL_GetTicks()
 
             renderer.clear((0, 0, 0, 0))
 
+            event: sdl2.SDL_Event
             for event in sdl2.ext.get_events():
                 if event.type == sdl2.SDL_QUIT:
                     return
@@ -157,12 +207,13 @@ class Manager:
             )
             self.render_system.process(start, renderables)
 
-            last = sdl2.SDL_GetTicks()
+            last: int = sdl2.SDL_GetTicks()
 
             duration = start - last
 
             if duration < frame_duration:
                 sdl2.SDL_Delay(int(frame_duration - duration))
 
-    def terminate(self, _signal, _stackframe):
+    def terminate(self, _signal, _stackframe) -> None:
+        logger.info("terminate")
         self.running = False
