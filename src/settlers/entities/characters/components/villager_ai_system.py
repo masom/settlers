@@ -60,7 +60,7 @@ class VillagerAi(Component):
         return self._available_tasks
 
     def on_task_assigned(self, task: type[Component]) -> None:
-        logger.debug("on_task_assigned", task=self.task, owner_id=self.owner_id())
+        logger.debug("on_task_assigned", task=task, owner_id=self.owner_id())
 
         self.task = task
         self.state_change(STATE_BUSY)
@@ -74,6 +74,7 @@ class VillagerAi(Component):
             f"Assigned {self.task.__name__}",
             RENDERABLE_LABEL_COLOR_TASK,
         )
+
         renderable.add_label(label)
 
     def on_task_started(self) -> None:

@@ -20,8 +20,10 @@ LABEL_TEAM = "team"
 
 LABELS = [LABEL_ID, LABEL_TASK, LABEL_NAME, LABEL_TEAM]
 
-LABEL_COLOR_TASK: RGBA = (200, 200, 200, 255)
-LABEL_COLOR_NAME: RGBA = (255, 200, 200, 255)
+LABEL_COLOR_TASK: RGBA = (255, 255, 255, 255)
+LABEL_COLOR_NAME: RGBA = (200, 200, 255, 255)
+
+LABEL_POSITION_BOTTOM = "bottom"
 
 
 class Label:
@@ -45,7 +47,7 @@ class Label:
         color: RGBA,
         background: Optional[RGBA] = None,
         border: Optional[RGBA] = None,
-        position: str = "bottom",
+        position: str = LABEL_POSITION_BOTTOM,
         shadow: bool = False,
     ) -> None:
         self.id: str = id
@@ -93,10 +95,10 @@ class RenderableLabelCache:
         color: RGBA,
         background: Optional[RGBA] = None,
         border: Optional[RGBA] = None,
-        position: str = "bottom",
+        position: str = LABEL_POSITION_BOTTOM,
         shadow: bool = False,
     ) -> Label:
-        key = f"{id}-{text}-{color}-{background}-{border}-{position}-{shadow}"
+        key = fnv1a_64(f"{id}-{text}-{color}-{background}-{border}-{position}-{shadow}")
 
         logger.debug(key)
 
@@ -111,11 +113,32 @@ class RenderableLabelCache:
         self.labels: Dict[str, Label] = {}
 
 
+FNV_32_PRIME = 0x01000193
+FNV_64_PRIME = 0x100000001B3
+
+FNV0_32_INIT = 0
+FNV0_64_INIT = 0
+FNV1_32_INIT = 0x811C9DC5
+FNV1_32A_INIT = FNV1_32_INIT
+FNV1_64_INIT = 0xCBF29CE484222325
+FNV1_64A_INIT = FNV1_64_INIT
+
+
+def fnv1a_64(data, hval_init=FNV1_64A_INIT, fnv_prime=FNV_32_PRIME, fnv_size=2**64):
+    encoded_data = data.lower().encode("utf-8")
+
+    hval = hval_init
+    for byte in encoded_data:
+        hval = hval ^ byte
+        hval = (hval * fnv_prime) % fnv_size
+    return hval
+
+
 label_cache = RenderableLabelCache()
 
 
 class Renderable(Component):
-    __slots__ = ("rect", "labels", "sprite", "type", "z")
+    __slots__ = ("rect", "labels", "sprite", "sprites", "type", "z")
 
     def __init__(self, owner: Entity, type: str, z: int = 1) -> None:
         super().__init__(owner)

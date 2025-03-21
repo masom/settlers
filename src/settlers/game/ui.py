@@ -5,13 +5,14 @@ import sdl2
 import sdl2.ext.renderer
 import sdl2.sdlttf
 from sdl2.ext.sprite import Sprite
+from sdl2.ext.spritesystem import SpriteRenderSystem
 import signal
 import structlog
 from typing import Dict, List
 
 from settlers.engine.entities.position import Position
 from settlers.entities.map import Map, MapTile
-from settlers.entities.renderable import Renderable
+from settlers.entities.renderable import Label, LABEL_POSITION_BOTTOM, Renderable
 from settlers.engine.world import World
 from settlers.engine.components import Component
 
@@ -26,15 +27,36 @@ class TextCache:
         self.font: sdl2.sdlttf.TTF_Font = sdl2.sdlttf.TTF_OpenFont(
             b"RobotoMono-Regular.ttf", 12
         )
-        self.cache: Dict[str, sdl2.ext.renderer.Texture] = {}
+        self.texture_cache: Dict[str, sdl2.ext.renderer.Texture] = {}
+        self.sprite_cache: Dict[Label, sdl2.ext.TextureSprite] = {}
+
         self.renderer: sdl2.ext.renderer.Renderer = renderer
 
-    def get(self, string: str, color: sdl2.SDL_Color) -> sdl2.ext.renderer.Texture:
-        key = f"{string}-{color.r}{color.g}{color.b}"
+    def get_sprite(self, label: Label) -> sdl2.ext.renderer.TextureSprite:
+        existing = self.sprite_cache.get(label, None)
 
-        existing = self.cache.get(key, None)
         if existing:
             return existing
+
+        logger.debug("get_sprite:generating", label_text=label.text)
+
+        texture = self.get_texture(label.text, label.color)
+
+        sprite = sdl2.ext.renderer.TextureSprite(texture.tx)
+        self.sprite_cache[label] = sprite
+
+        return sprite
+
+    def get_texture(
+        self, string: str, color: sdl2.SDL_Color
+    ) -> sdl2.ext.renderer.Texture:
+        key = f"{string}-{color.r}{color.g}{color.b}"
+
+        existing = self.texture_cache.get(key, None)
+        if existing:
+            return existing
+
+        logger.debug("get_texture:generating", key=key)
 
         surface: sdl2.SDL_Surface = sdl2.sdlttf.TTF_RenderText_Solid(
             self.font, string.encode("utf-8"), color
@@ -46,7 +68,7 @@ class TextCache:
 
         texture = sdl2.ext.renderer.Texture(self.renderer, surface)
 
-        self.cache[key] = texture
+        self.texture_cache[key] = texture
         return texture
 
     def clear(self) -> None:
@@ -85,11 +107,15 @@ class RenderSystem:
     }
 
     def __init__(
-        self, renderer: sdl2.ext.Renderer, sprite_factory: sdl2.ext.SpriteFactory
+        self,
+        renderer: sdl2.ext.Renderer,
+        sprite_renderer: SpriteRenderSystem,
+        sprite_factory: sdl2.ext.SpriteFactory,
     ):
+        self.sprite_renderer: SpriteRenderSystem = sprite_renderer
         self.renderer: sdl2.ext.Renderer = renderer
         self.sprite_factory: sdl2.ext.SpriteFactory = sprite_factory
-        self.text_cache = TextCache(renderer)
+        self.text_cache = TextCache(self.renderer)
 
     def load_sprite(self, sprite_file: str) -> Sprite:
         path = pathlib.Path(__file__).parent / "resources" / "png"
@@ -106,9 +132,11 @@ class RenderSystem:
         for renderable, position in renderables:
             self.update_renderable(renderable, position)
 
-            z_sprites[renderable.z].append(renderable.sprite)
+            z_sprites[renderable.z].extend(renderable.sprites)
 
-        self.renderer.render(sprites=list(itertools.chain.from_iterable(z_sprites)))
+        self.sprite_renderer.render(
+            sprites=list(itertools.chain.from_iterable(z_sprites))
+        )
 
     def update_renderable(self, renderable: Renderable, position: Position) -> None:
         if not renderable.sprite:
@@ -116,18 +144,35 @@ class RenderSystem:
             sprite_path = random.choice(self.sprites[t])
             renderable.sprite = self.load_sprite(sprite_path)
 
-        for label in renderable.labels.values():
-            texture: sdl2.ext.Texture = self.text_cache.get(label.text, label.color)
-
-        if not renderable.sprite:
-            # TODO: Create a rect, apply the base texture, apply labels
-            texture = sdl2.ext.Texture(self.renderer)
-
-            sprite = sdl2.ext.TextureSprite(texture)
-            renderable.sprite = sprite
-
         renderable.sprite.x = position.x
         renderable.sprite.y = position.y
+
+        renderable_sprite_w, renderable_sprite_h = renderable.sprite.size
+
+        renderable_sprite_w = int(renderable_sprite_w / 2)
+        renderable_sprite_h = int(renderable_sprite_h / 2)
+
+        renderable.sprites = [renderable.sprite]
+
+        label_count_top: int = 0
+        label_count_bottom: int = 0
+
+        for label in renderable.labels.values():
+            sprite: sdl2.ext.TextureSprite = self.text_cache.get_sprite(label)
+
+            sprite.x = renderable.sprite.x
+            sprite.y = renderable.sprite.y
+
+            sprite_w, sprite_h = sprite.size
+
+            if label.position == LABEL_POSITION_BOTTOM:
+                label_count_bottom += 1
+                sprite.y += renderable_sprite_h + (sprite_h * label_count_bottom)
+            else:
+                label_count_top += 1
+                sprite.y -= renderable_sprite_h + (sprite_h * label_count_top)
+
+            renderable.sprites.append(sprite)
 
 
 class Manager:
@@ -173,7 +218,7 @@ class Manager:
         sdl2.SDL_RaiseWindow(self.window.window)
 
         self.render_system: RenderSystem = RenderSystem(
-            self.sprite_renderer, self.sprite_factory
+            self.renderer, self.sprite_renderer, self.sprite_factory
         )
 
     def start(self, world: World):
