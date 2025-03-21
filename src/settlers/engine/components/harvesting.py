@@ -1,7 +1,6 @@
 import structlog
 from typing import Callable, List, Optional, Set, Tuple, Type
 import weakref
-import inspect
 
 from settlers.engine.entities.entity import Entity
 from settlers.engine.entities.position import Position
@@ -179,7 +178,7 @@ class Harvester(Component):
             id=hex(id(self)),
         )
 
-    def start(self, source) -> bool:
+    def start(self, source: Component) -> bool:
         if self.source:
             raise RuntimeError("already assigned")
 

@@ -58,7 +58,7 @@ class TextCache:
 
         logger.debug("get_texture:generating", key=key)
 
-        surface: sdl2.SDL_Surface = sdl2.sdlttf.TTF_RenderText_Solid(
+        surface: sdl2.SDL_Surface = sdl2.sdlttf.TTF_RenderText_Blended(
             self.font, string.encode("utf-8"), color
         )
         if not surface:
@@ -163,14 +163,15 @@ class RenderSystem:
             sprite.x = renderable.sprite.x
             sprite.y = renderable.sprite.y
 
-            sprite_w, sprite_h = sprite.size
+            _sprite_w, sprite_h = sprite.size
+            sprite_h = int(sprite_h / 2)
 
             if label.position == LABEL_POSITION_BOTTOM:
                 label_count_bottom += 1
                 sprite.y += renderable_sprite_h + (sprite_h * label_count_bottom)
             else:
                 label_count_top += 1
-                sprite.y -= renderable_sprite_h + (sprite_h * label_count_top)
+                sprite.y -= sprite_h * label_count_top
 
             renderable.sprites.append(sprite)
 

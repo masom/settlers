@@ -23,11 +23,11 @@ from settlers.entities.buildings import Building
 from settlers.entities.characters.villager import Villager
 from settlers.engine.entities.entity import Entity
 from settlers.entities.renderable import (
-    Label as RenderableLabel,
     Renderable,
     label_cache as RenderableLabelCache,
     LABEL_TASK as RENDERABLE_LABEL_TASK,
     LABEL_COLOR_TASK as RENDERABLE_LABEL_COLOR_TASK,
+    LABEL_POSITION_BOTTOM as RENDERABLE_LABEL_POSITION_BOTTOM,
 )
 
 STATE_IDLE = "idle"
@@ -71,8 +71,9 @@ class VillagerAi(Component):
 
         label = RenderableLabelCache.get(
             RENDERABLE_LABEL_TASK,
-            f"Assigned {self.task.__name__}",
+            f"A:{self.task.__name__}",
             RENDERABLE_LABEL_COLOR_TASK,
+            position=RENDERABLE_LABEL_POSITION_BOTTOM,
         )
 
         renderable.add_label(label)
@@ -86,7 +87,7 @@ class VillagerAi(Component):
 
         label = RenderableLabelCache.get(
             RENDERABLE_LABEL_TASK,
-            f"Started {self.task.__name__}",
+            f"S:{self.task.__name__}",
             RENDERABLE_LABEL_COLOR_TASK,
         )
         renderable.add_label(label)
@@ -390,6 +391,8 @@ class VillagerAiSystem:
                 self.handle_idle_villager(villager)
                 continue
 
+            villager.on_task_assigned(task)
+
             target = self.target_for_task(task)
             if not target:
                 self.handle_idle_villager(villager)
@@ -407,7 +410,7 @@ class VillagerAiSystem:
                 )
 
                 component.on_end(villager.on_task_ended)
-                villager.on_task_assigned(task)
+                villager.on_task_started()
             else:
                 logger.debug(
                     "process_component_rejected",

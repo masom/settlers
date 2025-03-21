@@ -12,8 +12,16 @@ from settlers.engine.entities.resources.resource_storage import (
     ResourceStoragesType,
 )
 
-from settlers.entities.renderable import Renderable
-from settlers.engine.components import Component
+from settlers.entities.renderable import (
+    Renderable,
+    label_cache as RenderableLabelCache,
+    Label as RenderableLabel,
+    LABEL_NAME as RENDERABLE_LABEL_NAME,
+    LABEL_COLOR_NAME as RENDERABLE_LABEL_COLOR_NAME,
+    LABEL_POSITION_TOP as RENDERABLE_LABEL_POSITION_TOP,
+)
+
+from settlers.engine.components import Component, ComponentManager
 
 
 class Villager(Entity):
@@ -31,6 +39,19 @@ class Villager(Entity):
             self._resource_storage_factory
         )
         self.name = name
+
+    def initialize(self) -> None:
+        super().initialize()
+
+        renderable = ComponentManager.fetch(self.id(), Renderable)
+        name_label = RenderableLabelCache.get(
+            RENDERABLE_LABEL_NAME,
+            self.name,
+            RENDERABLE_LABEL_COLOR_NAME,
+            position=RENDERABLE_LABEL_POSITION_TOP,
+            shadow=True,
+        )
+        renderable.add_label(name_label)
 
     def on_death(self) -> None:
         pass
