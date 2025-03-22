@@ -41,7 +41,7 @@ class Component:
             self.state_change(STATE_IDLE)
 
         for callback in self._on_end_callbacks:
-            callback(self)
+            callback(component=self)
 
         self._on_end_callbacks = []
 
@@ -88,7 +88,7 @@ class Components:
         if isinstance(component_definition, Component):
             component_instance = component_definition
         else:
-            component_class: Optional[Type[Component]] = None
+            component_class: Type[Component]
             arguments: Tuple = ()
 
             if type(component_definition) is tuple:
@@ -111,6 +111,14 @@ class Components:
                 )
 
             component_instance = component_class(self.owner, *arguments)
+
+        if component_instance.__class__ in self.component_classes:
+            import pdb
+
+            pdb.set_trace()
+            raise RuntimeError(
+                "Component is already present", klass=component_instance.__class__
+            )
 
         self.component_classes.add(component_instance.__class__)
 

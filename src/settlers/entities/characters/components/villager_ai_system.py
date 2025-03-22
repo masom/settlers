@@ -92,7 +92,7 @@ class VillagerAi(Component):
         )
         renderable.add_label(label)
 
-    def on_task_ended(self) -> None:
+    def on_task_ended(self, component=None) -> None:
         logger.info("on_task_ended", task=self.task)
         self.task = None
         self.state_change(STATE_IDLE)
@@ -151,13 +151,13 @@ class VillagerAiSystem:
             workers[task] = current
             sum += current
 
-        # Everyone can move stuff around
-        villager.components.add(ResourceTransport)
+        if not ResourceTransport in villager.components.component_classes:
+            villager.components.add(ResourceTransport)
 
         # TODO: Assign a subset of tasks when game is running for specialization
         if workers[Harvester] < len(ComponentManager[Harvestable]):
             proportion = 100 * float(workers[Harvester]) / float(sum)
-            if proportion < 0.1:
+            if proportion < 0.3:
                 logger.debug(
                     proportion=proportion,
                     assigned_task=Harvester,
@@ -227,11 +227,10 @@ class VillagerAiSystem:
 
         destination = random.choice(possible_destinations)
 
-        harvester.assign_destination(destination)
-
         travel: Travel = ComponentManager.fetch(harvester.owner_id(), Travel)
         travel.stop()
 
+        harvester.assign_destination(destination)
         harvester.state_change(HARVESTER_STATE_DELIVERING)
 
     def handle_busy_villager(self, villager: VillagerAi) -> None:
@@ -252,16 +251,19 @@ class VillagerAiSystem:
         if not resource_transport:
             return
 
+        # villager.on_task_assigned(ResourceTransport)
+        # villager.on_task_started()
+
         options: List[Callable] = [self.resource_transport_for_villager]
         task: Callable = random.choice(options)
 
         task(villager)
 
-    """
-    Find a random factory and check if it has resources available for transport.
-    """
-
     def resource_transport_for_villager(self, villager_ai: VillagerAi) -> None:
+        """
+        Find a random factory and check if it has resources available for transport.
+        """
+
         factories: List[Factory] = ComponentManager[Factory]
 
         # Sample will return len(factories) elements in random order
@@ -449,6 +451,7 @@ class VillagerAiSystem:
         target_components: List[Type[Component]] = task.target_components()
 
         if not target_components:
+            logger.error("target_for_task:no_target_components", task=task.__class__)
             return None
 
         # List of entities containing the components require by the task
@@ -462,6 +465,8 @@ class VillagerAiSystem:
 
         entity_id: int
         components: List[Component]
+
+        # TODO: Target entities should be sorted by distance, favouring the closests
 
         for entity_id, components in target_entities:
             targets = list(components)

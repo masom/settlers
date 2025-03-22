@@ -5,6 +5,7 @@ import weakref
 from collections import deque
 
 from . import Component, ComponentManager
+from ..components.inventory_routing import InventoryRouting
 from ..entities.entity import Entity
 from ..entities.position import Position
 from ..entities.resources.resource_storage import ResourceStorage
@@ -197,9 +198,6 @@ class ResourceTransport(Component):
     def is_valid_route(self, destination=None) -> bool:
         return not len(self.common_route_resources(destination)) == 0
 
-    def position(self) -> Position:
-        return self.owner.position
-
     def start(self, destination: Entity, source: Optional[Entity] = None) -> None:
         if self.destination:
             raise RuntimeError("already going somewhere")
@@ -269,17 +267,25 @@ class ResourceTransportSystem:
         if not resource_transport.source:
             return
 
-        source = resource_transport.source()
+        source: Optional[Entity] = resource_transport.source()
         if not source:
             resource_transport.stop()
             return
 
         resources: set = resource_transport.common_route_resources()
+        source_inventory: InventoryRouting = ComponentManager.fetch(
+            source.id(), InventoryRouting
+        )
 
-        if not source.inventory.available_for_transport(resources):
+        if not source_inventory.available_for_transport(resources):
             return
 
-        if not resource_transport.position() == source.position:
+        resource_transport_position: Position = ComponentManager.fetch(
+            resource_transport.owner_id(), Position
+        )
+        source_position: Position = ComponentManager.fetch(source.id(), Position)
+
+        if not resource_transport_position == source_position:
             resource_transport.direction = TRANSPORT_DIRECTION_SOURCE
             resource_transport.state_change(STATE_MOVING)
             travel.start(source)
@@ -299,14 +305,21 @@ class ResourceTransportSystem:
             resource_transport.stop()
             return
 
-        if not resource_transport.position() == source.position:
+        resource_transport_position: Position = ComponentManager.fetch(
+            resource_transport.owner_id(), Position
+        )
+        source_position: Position = ComponentManager.fetch(source.id(), Position)
+
+        if not resource_transport_position == source_position:
             resource_transport.state_change(STATE_IDLE)
             return
 
+        source_inventory: InventoryRouting = ComponentManager.fetch(
+            source.id(), InventoryRouting
+        )
         resources = resource_transport.common_route_resources()
-        routing = source.inventory
+        resource = source_inventory.available_for_transport(resources)
 
-        resource = routing.available_for_transport(resources)
         if not resource:
             resource_transport.state_change(STATE_IDLE)
             return
@@ -315,7 +328,7 @@ class ResourceTransportSystem:
         accepted = []
 
         while not storage.is_full():
-            item = routing.remove_inventory(resource)
+            item = source_inventory.remove_inventory(resource)
             if not item:
                 break
 
@@ -354,23 +367,19 @@ class ResourceTransportSystem:
     def handle_movement(
         self, resource_transport: ResourceTransport, worker_travel: Travel
     ) -> None:
+        resource_transport_position: Position = ComponentManager.fetch(
+            resource_transport.owner_id(), Position
+        )
+
+        # TODO: Callbacks when reaching destionatin instead of polling?
+
         if resource_transport.direction == TRANSPORT_DIRECTION_SOURCE:
             if not resource_transport.source:
                 resource_transport.stop()
                 return
 
-            source: Component = resource_transport.source()
-
-            import pdb
-
-            pdb.set_trace()
-
-            resource_transport_position: Position = ComponentManager.fetch(
-                resource_transport.owner_id(), Position
-            )
-            source_position: Position = ComponentManager.fetch(
-                source.owner_id(), Position
-            )
+            source: Entity = resource_transport.source()
+            source_position: Position = ComponentManager.fetch(source.id(), Position)
 
             if resource_transport_position == source_position:
                 resource_transport.state_change(STATE_LOADING)
@@ -380,13 +389,17 @@ class ResourceTransportSystem:
                 resource_transport.stop()
                 return
 
-            destination = resource_transport.destination()
+            destination: Optional[Entity] = resource_transport.destination()
 
             if not destination:
                 resource_transport.stop()
                 return
 
-            if resource_transport.position() == destination.position:
+            destination_position: Position = ComponentManager.fetch(
+                destination.id(), Position
+            )
+
+            if resource_transport_position == destination_position:
                 resource_transport.state_change(STATE_UNLOADING)
                 return
 
@@ -397,14 +410,19 @@ class ResourceTransportSystem:
             resource_transport.stop()
             return
 
-        destination = resource_transport.destination()
+        destination: Optional[Entity] = resource_transport.destination()
         if not destination:
             resource_transport.stop()
             return
 
-        position: Position = resource_transport.position()
+        position: Position = ComponentManager.fetch(
+            resource_transport.owner_id(), Position
+        )
+        destination_position: Position = ComponentManager.fetch(
+            destination.id(), Position
+        )
 
-        if not position == destination.position:
+        if not position == destination_position:
             logger.debug(
                 "resource_transport.handle_unloading.not_at_destination",
                 resource_transport=resource_transport,
@@ -415,7 +433,11 @@ class ResourceTransportSystem:
             raise RuntimeError("we are trying to unload while not at destination")
             return
 
-        if not destination.inventory.can_receive_resources():
+        destination_inventory: InventoryRouting = ComponentManager.fetch(
+            destination.id(), InventoryRouting
+        )
+
+        if not destination_inventory.can_receive_resources():
             logger.debug(
                 "handle_unloading:cannot_receive_resources",
                 source=resource_transport.source,
@@ -433,6 +455,10 @@ class ResourceTransportSystem:
         accepted: List[type] = []
         rejected: List[type] = []
 
+        destination_inventory: InventoryRouting = ComponentManager.fetch(
+            destination.id(), InventoryRouting
+        )
+
         for resource in resources:
             # TODO: Check if receiver will want this.
             storage: ResourceStorage = resource_transport.owner.storages[resource]
@@ -444,7 +470,7 @@ class ResourceTransportSystem:
                     rejected.append(item)
                     continue
 
-                if destination.inventory.receive_resource(item):
+                if destination_inventory.receive_resource(item):
                     accepted.append(item)
                     continue
 
@@ -463,9 +489,10 @@ class ResourceTransportSystem:
             system=self.__class__.__name__,
         )
 
-        source = None
+        source: Optional[Entity] = None
+
         if resource_transport.source:
-            source = resource_transport.source()
+            source: Entity = resource_transport.source()
 
         if len(rejected) == resources and len(accepted) == 0:
             logger.debug(

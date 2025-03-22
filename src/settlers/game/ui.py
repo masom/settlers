@@ -20,6 +20,12 @@ logger = structlog.get_logger("game.manager")
 
 
 class TextCache:
+    """
+    Caches text as Textures and Sprites for quick-reuse.
+
+    Most strings would be presented more than once, often at the same time.
+    """
+
     def __init__(self, renderer: sdl2.ext.renderer.Renderer):
         logger.info("Init TTF")
         sdl2.sdlttf.TTF_Init()
