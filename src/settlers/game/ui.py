@@ -235,11 +235,38 @@ class RenderSystem:
                 sprite_path
             )
 
-        for label in renderable.labels.values():
-            label_sprite = self.sprite_manager.create_label_sprite(label)
-            sprite_group.add_label_sprite(label_sprite, label.position)
-
+        # Update position
         sprite_group.update_position(position.x, position.y)
+
+        # Sync labels if needed
+        if renderable.labels_need_sync:
+            logger.debug("sync_labels", renderable=renderable)
+            self._sync_labels(renderable, sprite_group)
+            renderable.labels_need_sync = False
+
+    def _sync_labels(self, renderable: Renderable, sprite_group: SpriteGroup) -> None:
+        """Synchronize the sprite group's label sprites with the renderable's labels."""
+        # Get current label IDs in the sprite group
+        current_label_ids = {sprite.label_id for sprite in sprite_group.label_sprites}
+
+        # Get desired label IDs from the renderable
+        desired_label_ids = set(renderable.labels.keys())
+
+        # Remove sprites for labels that no longer exist
+        sprite_group.label_sprites = [
+            sprite
+            for sprite in sprite_group.label_sprites
+            if sprite.label_id in desired_label_ids
+        ]
+
+        # Add sprites for new labels
+        for label_id, label in renderable.labels.items():
+            if label_id not in current_label_ids:
+                label_sprite = self.sprite_manager.create_label_sprite(label)
+                label_sprite.label_id = (
+                    label_id  # Store the label ID for future reference
+                )
+                sprite_group.add_label_sprite(label_sprite, label.position)
 
 
 class Manager:

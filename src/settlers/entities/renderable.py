@@ -150,7 +150,7 @@ label_cache = RenderableLabelCache()
 
 
 class Renderable(Component):
-    __slots__ = ("rect", "labels", "type", "z")
+    __slots__ = ("rect", "labels", "type", "z", "labels_need_sync")
 
     def __init__(self, owner: Entity, type: str, z: int = 1) -> None:
         super().__init__(owner)
@@ -158,13 +158,26 @@ class Renderable(Component):
         self.type: str = type
         self.z: int = z
         self.labels: Dict[str, Label] = {}
+        self.labels_need_sync: bool = True
+
+    def update_label(self, label: Label, multiple_for_type: bool = False) -> None:
+        for existing_id, existing_label in self.labels.items():
+            if existing_label.type_id == label.type_id:
+                del self.labels[existing_id]
+                break
+
+        self.labels[label.id] = label
+        self.labels_need_sync = True
 
     def add_label(self, label: Label) -> None:
         self.labels[label.id] = label
+        self.labels_need_sync = True
 
     def remove_label(self, id: str) -> None:
-        self.labels[id] = None
-        del self.labels[id]
+        if id in self.labels:
+            self.labels[id] = None
+            del self.labels[id]
+            self.labels_need_sync = True
 
     def reset(self, new_type: str) -> None:
         logger.debug(
@@ -174,6 +187,7 @@ class Renderable(Component):
 
         self.labels = {}
         self.type = new_type
+        self.labels_need_sync = True
 
     def __repr__(self) -> str:
         return "<{owner}#{component} {id}>".format(

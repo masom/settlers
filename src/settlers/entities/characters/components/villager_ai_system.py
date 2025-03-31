@@ -76,7 +76,7 @@ class VillagerAi(Component):
             position=RENDERABLE_LABEL_POSITION_BOTTOM,
         )
 
-        renderable.add_label(label)
+        renderable.update_label(label)
 
     def on_task_started(self) -> None:
         logger.info("on_task_started", component=self.task, owner_id=self.owner_id())
@@ -90,7 +90,7 @@ class VillagerAi(Component):
             f"S:{self.task.__name__}",
             RENDERABLE_LABEL_COLOR_TASK,
         )
-        renderable.add_label(label)
+        renderable.update_label(label)
 
     def on_task_ended(self, component=None) -> None:
         logger.info("on_task_ended", task=self.task)
