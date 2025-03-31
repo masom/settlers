@@ -16,7 +16,7 @@ from settlers.entities.renderable import (
     Renderable,
     label_cache as RenderableLabelCache,
     Label as RenderableLabel,
-    LABEL_NAME as RENDERABLE_LABEL_NAME,
+    LABEL_TYPE_NAME as RENDERABLE_LABEL_TYPE_NAME,
     LABEL_COLOR_NAME as RENDERABLE_LABEL_COLOR_NAME,
     LABEL_POSITION_TOP as RENDERABLE_LABEL_POSITION_TOP,
 )
@@ -45,7 +45,7 @@ class Villager(Entity):
 
         renderable = ComponentManager.fetch(self.id(), Renderable)
         name_label = RenderableLabelCache.get(
-            RENDERABLE_LABEL_NAME,
+            RENDERABLE_LABEL_TYPE_NAME,
             self.name,
             RENDERABLE_LABEL_COLOR_NAME,
             position=RENDERABLE_LABEL_POSITION_TOP,

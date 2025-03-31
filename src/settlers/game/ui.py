@@ -8,7 +8,7 @@ from sdl2.ext.sprite import Sprite
 from sdl2.ext.spritesystem import SpriteRenderSystem
 import signal
 import structlog
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from settlers.engine.entities.position import Position
 from settlers.entities.map import Map, MapTile
@@ -19,10 +19,107 @@ from settlers.engine.components import Component
 logger = structlog.get_logger("game.manager")
 
 
+class SpriteGroup:
+    """Manages a group of sprites for a renderable entity."""
+
+    __slots__ = ("base_sprite", "label_sprites", "position", "needs_update")
+
+    def __init__(self, base_sprite: Optional[Sprite] = None):
+        self.base_sprite = base_sprite
+        self.label_sprites: List[Sprite] = []
+        self.position: Optional[tuple[int, int]] = None
+        self.needs_update = True
+
+    def update_position(self, x: int, y: int) -> None:
+        """Update the position of all sprites in the group."""
+        if self.position == (x, y):
+            return
+
+        self.position = (x, y)
+        self.needs_update = True
+
+        if self.base_sprite:
+            self.base_sprite.x = x
+            self.base_sprite.y = y
+
+        base_sprite_w = int(self.base_sprite.size[0] / 2) if self.base_sprite else 0
+        base_sprite_h = int(self.base_sprite.size[1] / 2) if self.base_sprite else 0
+
+        label_count_top = 0
+        label_count_bottom = 0
+
+        for sprite in self.label_sprites:
+            sprite.x = x
+            sprite.y = y
+
+            _sprite_w, sprite_h = sprite.size
+            sprite_h = int(sprite_h / 2)
+
+            if sprite.label_position == LABEL_POSITION_BOTTOM:
+                label_count_bottom += 1
+                sprite.y += base_sprite_h + (sprite_h * label_count_bottom)
+            else:
+                label_count_top += 1
+                sprite.y -= sprite_h * label_count_top
+
+    def add_label_sprite(self, sprite: Sprite, position: str) -> None:
+        """Add a label sprite to the group."""
+        sprite.label_position = position
+        self.label_sprites.append(sprite)
+        self.needs_update = True
+
+    def clear_label_sprites(self) -> None:
+        """Remove all label sprites from the group."""
+        self.label_sprites.clear()
+        self.needs_update = True
+
+    @property
+    def sprites(self) -> List[Sprite]:
+        """Get all sprites in the group."""
+        if not self.needs_update:
+            return (
+                [self.base_sprite] + self.label_sprites
+                if self.base_sprite
+                else self.label_sprites
+            )
+
+        result = []
+        if self.base_sprite:
+            result.append(self.base_sprite)
+        result.extend(self.label_sprites)
+        self.needs_update = False
+        return result
+
+
+class SpriteFactory:
+    """Factory for creating and managing sprites."""
+
+    def __init__(self, sprite_factory: sdl2.ext.SpriteFactory, text_cache: "TextCache"):
+        self.sprite_factory = sprite_factory
+        self.text_cache = text_cache
+        self.sprite_groups: Dict[str, SpriteGroup] = {}
+
+    def get_sprite_group(self, entity_id: str) -> SpriteGroup:
+        """Get or create a sprite group for an entity."""
+        if entity_id not in self.sprite_groups:
+            self.sprite_groups[entity_id] = SpriteGroup()
+        return self.sprite_groups[entity_id]
+
+    def create_base_sprite(self, sprite_file: str) -> Sprite:
+        """Create a base sprite from an image file."""
+        path = pathlib.Path(__file__).parent / "resources" / "png"
+        path = path / sprite_file
+        return self.sprite_factory.from_image(str(path))
+
+    def create_label_sprite(self, label: Label) -> Sprite:
+        """Create a sprite for a label."""
+        texture = self.text_cache.get_texture(label.text, label.color)
+        return sdl2.ext.renderer.TextureSprite(texture.tx)
+
+
 class TextCache:
     """
-    Caches text as Textures and Sprites for quick-reuse.
-
+    Caches text as Textures for quick-reuse.
     Most strings would be presented more than once, often at the same time.
     """
 
@@ -34,24 +131,7 @@ class TextCache:
             b"RobotoMono-Regular.ttf", 12
         )
         self.texture_cache: Dict[str, sdl2.ext.renderer.Texture] = {}
-        self.sprite_cache: Dict[Label, sdl2.ext.TextureSprite] = {}
-
         self.renderer: sdl2.ext.renderer.Renderer = renderer
-
-    def get_sprite(self, label: Label) -> sdl2.ext.renderer.TextureSprite:
-        existing = self.sprite_cache.get(label, None)
-
-        if existing:
-            return existing
-
-        logger.debug("get_sprite:generating", label_text=label.text)
-
-        texture = self.get_texture(label.text, label.color)
-
-        sprite = sdl2.ext.renderer.TextureSprite(texture.tx)
-        self.sprite_cache[label] = sprite
-
-        return sprite
 
     def get_texture(
         self, string: str, color: sdl2.SDL_Color
@@ -74,14 +154,19 @@ class TextCache:
 
         texture = sdl2.ext.renderer.Texture(self.renderer, surface)
 
+        if not texture:
+            error = sdl2.SDL_GetError()
+            logger.error("TextCache sdl2.ext.renderer.Texture error", error=error)
+            raise RuntimeError(error)
+
         self.texture_cache[key] = texture
         return texture
 
     def clear(self) -> None:
-        for texture in self.cache.values():
+        """Clear all cached textures."""
+        for texture in self.texture_cache.values():
             texture.destroy()
-
-        self.cache = {}
+        self.texture_cache.clear()
 
 
 class RenderSystem:
@@ -122,12 +207,7 @@ class RenderSystem:
         self.renderer: sdl2.ext.Renderer = renderer
         self.sprite_factory: sdl2.ext.SpriteFactory = sprite_factory
         self.text_cache = TextCache(self.renderer)
-
-    def load_sprite(self, sprite_file: str) -> Sprite:
-        path = pathlib.Path(__file__).parent / "resources" / "png"
-        path = path / sprite_file
-
-        return self.sprite_factory.from_image(str(path))
+        self.sprite_manager = SpriteFactory(sprite_factory, self.text_cache)
 
     def process(self, ticks: int, renderables: list[Component]):
         if not hasattr(self, "_previous_ticks"):
@@ -136,50 +216,30 @@ class RenderSystem:
         z_sprites: list[list[Sprite]] = [[], [], [], []]
 
         for renderable, position in renderables:
-            self.update_renderable(renderable, position)
-
-            z_sprites[renderable.z].extend(renderable.sprites)
+            sprite_group = self.sprite_manager.get_sprite_group(renderable.owner_id())
+            self.update_renderable(renderable, position, sprite_group)
+            z_sprites[renderable.z].extend(sprite_group.sprites)
 
         self.sprite_renderer.render(
             sprites=list(itertools.chain.from_iterable(z_sprites))
         )
 
-    def update_renderable(self, renderable: Renderable, position: Position) -> None:
-        if not renderable.sprite:
+    def update_renderable(
+        self, renderable: Renderable, position: Position, sprite_group: SpriteGroup
+    ) -> None:
+        # Update base sprite if needed
+        if not sprite_group.base_sprite:
             t = renderable.type
             sprite_path = random.choice(self.sprites[t])
-            renderable.sprite = self.load_sprite(sprite_path)
-
-        renderable.sprite.x = position.x
-        renderable.sprite.y = position.y
-
-        renderable_sprite_w, renderable_sprite_h = renderable.sprite.size
-
-        renderable_sprite_w = int(renderable_sprite_w / 2)
-        renderable_sprite_h = int(renderable_sprite_h / 2)
-
-        renderable.sprites = [renderable.sprite]
-
-        label_count_top: int = 0
-        label_count_bottom: int = 0
+            sprite_group.base_sprite = self.sprite_manager.create_base_sprite(
+                sprite_path
+            )
 
         for label in renderable.labels.values():
-            sprite: sdl2.ext.TextureSprite = self.text_cache.get_sprite(label)
+            label_sprite = self.sprite_manager.create_label_sprite(label)
+            sprite_group.add_label_sprite(label_sprite, label.position)
 
-            sprite.x = renderable.sprite.x
-            sprite.y = renderable.sprite.y
-
-            _sprite_w, sprite_h = sprite.size
-            sprite_h = int(sprite_h / 2)
-
-            if label.position == LABEL_POSITION_BOTTOM:
-                label_count_bottom += 1
-                sprite.y += renderable_sprite_h + (sprite_h * label_count_bottom)
-            else:
-                label_count_top += 1
-                sprite.y -= sprite_h * label_count_top
-
-            renderable.sprites.append(sprite)
+        sprite_group.update_position(position.x, position.y)
 
 
 class Manager:

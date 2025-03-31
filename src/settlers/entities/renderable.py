@@ -13,12 +13,12 @@ RGBA = Tuple[int, int, int, int]
 
 LabelData = Tuple[sdl2.SDL_Texture, sdl2.SDL_Rect]
 
-LABEL_ID = "id"
-LABEL_TASK = "task"
-LABEL_NAME = "name"
-LABEL_TEAM = "team"
+LABEL_TYPE_ID = "id"
+LABEL_TYPE_TASK = "task"
+LABEL_TYPE_NAME = "name"
+LABEL_TYPE_TEAM = "team"
 
-LABELS = [LABEL_ID, LABEL_TASK, LABEL_NAME, LABEL_TEAM]
+LABEL_TYPES = [LABEL_TYPE_ID, LABEL_TYPE_TASK, LABEL_TYPE_NAME, LABEL_TYPE_TEAM]
 
 LABEL_COLOR_TASK: RGBA = (255, 255, 255, 255)
 LABEL_COLOR_NAME: RGBA = (100, 100, 255, 255)
@@ -37,13 +37,14 @@ class Label:
         "rect",
         "shadow",
         "text",
+        "type_id",
         "_texture",
         "_rect",
     )
 
     def __init__(
         self,
-        id: str,
+        type_id: str,
         text: str,
         color: RGBA,
         background: Optional[RGBA] = None,
@@ -51,7 +52,8 @@ class Label:
         position: str = LABEL_POSITION_BOTTOM,
         shadow: bool = False,
     ) -> None:
-        self.id: str = id
+        self.id: int = 0
+        self.type_id: str = type_id
         self.background: Optional[sdl2.SDL_Color]
 
         r: int
@@ -83,6 +85,14 @@ class Label:
         self.shadow = shadow
 
 
+def generate_label_id(
+    type_id, text, color, background, border, position, shadow
+) -> int:
+    return fnv1a_64(
+        f"{type_id}-{text}-{color}-{background}-{border}-{position}-{shadow}"
+    )
+
+
 class RenderableLabelCache:
     __slots__ = "labels"
 
@@ -91,7 +101,7 @@ class RenderableLabelCache:
 
     def get(
         self,
-        id: str,
+        type_id: str,
         text: str,
         color: RGBA,
         background: Optional[RGBA] = None,
@@ -99,13 +109,14 @@ class RenderableLabelCache:
         position: str = LABEL_POSITION_BOTTOM,
         shadow: bool = False,
     ) -> Label:
-        key = fnv1a_64(f"{id}-{text}-{color}-{background}-{border}-{position}-{shadow}")
-
-        logger.debug(key)
+        key = generate_label_id(
+            type_id, text, color, background, border, position, shadow
+        )
 
         label = self.labels.get(key, None)
         if not label:
-            label = Label(id, text, color, background, border, position, shadow)
+            label = Label(type_id, text, color, background, border, position, shadow)
+            label.id = key
             self.labels[key] = label
 
         return label
@@ -139,16 +150,13 @@ label_cache = RenderableLabelCache()
 
 
 class Renderable(Component):
-    __slots__ = ("rect", "labels", "sprite", "sprites", "type", "z")
+    __slots__ = ("rect", "labels", "type", "z")
 
     def __init__(self, owner: Entity, type: str, z: int = 1) -> None:
         super().__init__(owner)
 
-        self.sprite: Optional[Sprite] = None
-
         self.type: str = type
         self.z: int = z
-
         self.labels: Dict[str, Label] = {}
 
     def add_label(self, label: Label) -> None:
@@ -164,8 +172,6 @@ class Renderable(Component):
             owner=self.owner,
         )
 
-        self.sprite = None
-        self.base = None
         self.labels = {}
         self.type = new_type
 

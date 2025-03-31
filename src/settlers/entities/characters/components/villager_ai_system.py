@@ -25,7 +25,7 @@ from settlers.engine.entities.entity import Entity
 from settlers.entities.renderable import (
     Renderable,
     label_cache as RenderableLabelCache,
-    LABEL_TASK as RENDERABLE_LABEL_TASK,
+    LABEL_TYPE_TASK as RENDERABLE_LABEL_TYPE_TASK,
     LABEL_COLOR_TASK as RENDERABLE_LABEL_COLOR_TASK,
     LABEL_POSITION_BOTTOM as RENDERABLE_LABEL_POSITION_BOTTOM,
 )
@@ -70,7 +70,7 @@ class VillagerAi(Component):
             return
 
         label = RenderableLabelCache.get(
-            RENDERABLE_LABEL_TASK,
+            RENDERABLE_LABEL_TYPE_TASK,
             f"A:{self.task.__name__}",
             RENDERABLE_LABEL_COLOR_TASK,
             position=RENDERABLE_LABEL_POSITION_BOTTOM,
@@ -86,7 +86,7 @@ class VillagerAi(Component):
             return
 
         label = RenderableLabelCache.get(
-            RENDERABLE_LABEL_TASK,
+            RENDERABLE_LABEL_TYPE_TASK,
             f"S:{self.task.__name__}",
             RENDERABLE_LABEL_COLOR_TASK,
         )
@@ -101,7 +101,7 @@ class VillagerAi(Component):
         if not renderable:
             return
 
-        renderable.remove_label(RENDERABLE_LABEL_TASK)
+        renderable.remove_label(RENDERABLE_LABEL_TYPE_TASK)
 
     def state_change(self, new_state: str) -> None:
         if self.state == new_state:
