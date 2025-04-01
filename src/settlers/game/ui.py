@@ -22,35 +22,41 @@ logger = structlog.get_logger("game.manager")
 class SpriteGroup:
     """Manages a group of sprites for a renderable entity."""
 
-    __slots__ = ("base_sprite", "label_sprites", "position", "needs_update")
+    __slots__ = ("entity_id", "base_sprite", "label_sprites", "position", "needs_update", "_cached_sprites")
 
-    def __init__(self, base_sprite: Optional[Sprite] = None):
+    def __init__(self, entity_id: str, base_sprite: Optional[Sprite] = None):
+        self.entity_id = entity_id
         self.base_sprite = base_sprite
         self.label_sprites: List[Sprite] = []
         self.position: Optional[tuple[int, int]] = None
         self.needs_update = True
+        self._cached_sprites: Optional[List[Sprite]] = None
 
-    def update_position(self, x: int, y: int) -> None:
-        """Update the position of all sprites in the group."""
-        if self.position == (x, y):
+    def update(self, position: Position) -> None:
+        """Update all sprites in the group based on the position component."""
+        if self.position == (position.x, position.y):
             return
 
-        self.position = (x, y)
         self.needs_update = True
+        self._cached_sprites = None
 
-        if self.base_sprite:
-            self.base_sprite.x = x
-            self.base_sprite.y = y
+        self.position = (position.x, position.y)
 
-        base_sprite_w = int(self.base_sprite.size[0] / 2) if self.base_sprite else 0
-        base_sprite_h = int(self.base_sprite.size[1] / 2) if self.base_sprite else 0
+        if not self.base_sprite:
+            return
+
+        self.base_sprite.x = position.x
+        self.base_sprite.y = position.y
+
+        # base_sprite_w = int(self.base_sprite.size[0] / 2)
+        base_sprite_h = int(self.base_sprite.size[1] / 2)
 
         label_count_top = 0
         label_count_bottom = 0
 
         for sprite in self.label_sprites:
-            sprite.x = x
-            sprite.y = y
+            sprite.x = position.x
+            sprite.y = position.y
 
             _sprite_w, sprite_h = sprite.size
             sprite_h = int(sprite_h / 2)
@@ -67,28 +73,32 @@ class SpriteGroup:
         sprite.label_position = position
         self.label_sprites.append(sprite)
         self.needs_update = True
+        self._cached_sprites = None
 
     def clear_label_sprites(self) -> None:
         """Remove all label sprites from the group."""
         self.label_sprites.clear()
         self.needs_update = True
+        self._cached_sprites = None
 
     @property
     def sprites(self) -> List[Sprite]:
         """Get all sprites in the group."""
-        if not self.needs_update:
-            return (
-                [self.base_sprite] + self.label_sprites
-                if self.base_sprite
-                else self.label_sprites
-            )
+        if not self.needs_update and self._cached_sprites is not None:
+            return self._cached_sprites
 
         result = []
         if self.base_sprite:
             result.append(self.base_sprite)
         result.extend(self.label_sprites)
+
+        self._cached_sprites = result
         self.needs_update = False
+
         return result
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} {self.entity_id}>"
 
 
 class SpriteFactory:
@@ -102,7 +112,7 @@ class SpriteFactory:
     def get_sprite_group(self, entity_id: str) -> SpriteGroup:
         """Get or create a sprite group for an entity."""
         if entity_id not in self.sprite_groups:
-            self.sprite_groups[entity_id] = SpriteGroup()
+            self.sprite_groups[entity_id] = SpriteGroup(entity_id)
         return self.sprite_groups[entity_id]
 
     def create_base_sprite(self, sprite_file: str) -> Sprite:
@@ -133,6 +143,11 @@ class TextCache:
         self.texture_cache: Dict[str, sdl2.ext.renderer.Texture] = {}
         self.renderer: sdl2.ext.renderer.Renderer = renderer
 
+        # Get the renderer's pixel format
+        info = sdl2.SDL_RendererInfo()
+        sdl2.SDL_GetRendererInfo(self.renderer.renderer, info)
+        self.pixel_format = info.texture_formats[0]
+
     def get_texture(
         self, string: str, color: sdl2.SDL_Color
     ) -> sdl2.ext.renderer.Texture:
@@ -144,6 +159,7 @@ class TextCache:
 
         logger.debug("get_texture:generating", key=key)
 
+        # Create initial surface with TTF
         surface: sdl2.SDL_Surface = sdl2.sdlttf.TTF_RenderText_Blended(
             self.font, string.encode("utf-8"), color
         )
@@ -152,15 +168,29 @@ class TextCache:
             logger.error("TextCache TTF_RenderText_Solid error", error=error)
             raise RuntimeError(error)
 
-        texture = sdl2.ext.renderer.Texture(self.renderer, surface)
+        try:
+            # Convert surface to the renderer's pixel format
+            converted_surface = sdl2.SDL_ConvertSurfaceFormat(surface.contents, self.pixel_format, 0)
+            if not converted_surface:
+                error = sdl2.SDL_GetError()
+                logger.error("TextCache SDL_ConvertSurfaceFormat error", error=error)
+                raise RuntimeError(error)
 
-        if not texture:
-            error = sdl2.SDL_GetError()
-            logger.error("TextCache sdl2.ext.renderer.Texture error", error=error)
-            raise RuntimeError(error)
+            # Create texture from the converted surface
+            texture = sdl2.ext.renderer.Texture(self.renderer, converted_surface.contents)
+            if not texture:
+                error = sdl2.SDL_GetError()
+                logger.error("TextCache sdl2.ext.renderer.Texture error", error=error)
+                raise RuntimeError(error)
 
-        self.texture_cache[key] = texture
-        return texture
+            self.texture_cache[key] = texture
+            return texture
+
+        finally:
+            # Clean up surfaces
+            sdl2.SDL_FreeSurface(surface)
+            if 'converted_surface' in locals() and converted_surface:
+                sdl2.SDL_FreeSurface(converted_surface)
 
     def clear(self) -> None:
         """Clear all cached textures."""
@@ -235,22 +265,21 @@ class RenderSystem:
                 sprite_path
             )
 
-        # Update position
-        sprite_group.update_position(position.x, position.y)
+        # Update sprites
+        sprite_group.update(position)
 
         # Sync labels if needed
         if renderable.labels_need_sync:
-            logger.debug("sync_labels", renderable=renderable)
             self._sync_labels(renderable, sprite_group)
             renderable.labels_need_sync = False
 
     def _sync_labels(self, renderable: Renderable, sprite_group: SpriteGroup) -> None:
         """Synchronize the sprite group's label sprites with the renderable's labels."""
         # Get current label IDs in the sprite group
-        current_label_ids = {sprite.label_id for sprite in sprite_group.label_sprites}
+        current_label_ids: set = {sprite.label_id for sprite in sprite_group.label_sprites}
 
         # Get desired label IDs from the renderable
-        desired_label_ids = set(renderable.labels.keys())
+        desired_label_ids: set = set(renderable.labels.keys())
 
         # Remove sprites for labels that no longer exist
         sprite_group.label_sprites = [
