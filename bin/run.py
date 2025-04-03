@@ -12,9 +12,6 @@ from settlers.entities.map import Map
 
 structlog.configure(
     processors=[
-        structlog.processors.StackInfoRenderer(),
-        structlog.dev.set_exc_info,
-        structlog.processors.format_exc_info,
         structlog.processors.TimeStamper(),
         structlog.dev.ConsoleRenderer(),
     ],

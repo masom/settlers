@@ -1,7 +1,7 @@
 from typing import List
 from settlers.engine.entities.entity import Entity
 from settlers.engine.entities.position import Position
-
+from settlers.engine.components import ComponentManager
 from settlers.entities.renderable import Renderable
 
 
@@ -24,16 +24,11 @@ class MapTile(Entity):
         super().initialize()
 
     def __repr__(self) -> str:
-        position = getattr(self, "position", None)
-        if not position:
-            position = (self.row * 120, self.column * 140)
-
-        return "<{klass} {row} {column} {position} {id}>".format(
+        return "<{klass} {row} {column} {id}>".format(
             klass=self.__class__.__name__,
             row=self.row,
             column=self.column,
-            position=position,
-            id=hex(id(self)),
+            id=hex(self.id()),
         )
 
 

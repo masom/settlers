@@ -8,7 +8,7 @@ from sdl2.ext.sprite import Sprite
 from sdl2.ext.spritesystem import SpriteRenderSystem
 import signal
 import structlog
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from settlers.engine.entities.position import Position
 from settlers.entities.map import Map, MapTile
@@ -22,7 +22,14 @@ logger = structlog.get_logger("game.manager")
 class SpriteGroup:
     """Manages a group of sprites for a renderable entity."""
 
-    __slots__ = ("entity_id", "base_sprite", "label_sprites", "position", "needs_update", "_cached_sprites")
+    __slots__ = (
+        "entity_id",
+        "base_sprite",
+        "label_sprites",
+        "position",
+        "needs_update",
+        "_cached_sprites",
+    )
 
     def __init__(self, entity_id: str, base_sprite: Optional[Sprite] = None):
         self.entity_id = entity_id
@@ -163,21 +170,28 @@ class TextCache:
         surface: sdl2.SDL_Surface = sdl2.sdlttf.TTF_RenderText_Blended(
             self.font, string.encode("utf-8"), color
         )
+
         if not surface:
             error = sdl2.sdlttf.TTF_GetError()
             logger.error("TextCache TTF_RenderText_Solid error", error=error)
             raise RuntimeError(error)
 
+        converted_surface: Optional[sdl2.SDL_Surface] = None
+
         try:
             # Convert surface to the renderer's pixel format
-            converted_surface = sdl2.SDL_ConvertSurfaceFormat(surface.contents, self.pixel_format, 0)
+            converted_surface = sdl2.SDL_ConvertSurfaceFormat(
+                surface.contents, self.pixel_format, 0
+            )
             if not converted_surface:
                 error = sdl2.SDL_GetError()
                 logger.error("TextCache SDL_ConvertSurfaceFormat error", error=error)
                 raise RuntimeError(error)
 
             # Create texture from the converted surface
-            texture = sdl2.ext.renderer.Texture(self.renderer, converted_surface.contents)
+            texture = sdl2.ext.renderer.Texture(
+                self.renderer, converted_surface.contents
+            )
             if not texture:
                 error = sdl2.SDL_GetError()
                 logger.error("TextCache sdl2.ext.renderer.Texture error", error=error)
@@ -189,7 +203,7 @@ class TextCache:
         finally:
             # Clean up surfaces
             sdl2.SDL_FreeSurface(surface)
-            if 'converted_surface' in locals() and converted_surface:
+            if converted_surface:
                 sdl2.SDL_FreeSurface(converted_surface)
 
     def clear(self) -> None:
@@ -230,29 +244,154 @@ class RenderSystem:
     def __init__(
         self,
         renderer: sdl2.ext.Renderer,
-        sprite_renderer: SpriteRenderSystem,
         sprite_factory: sdl2.ext.SpriteFactory,
     ):
-        self.sprite_renderer: SpriteRenderSystem = sprite_renderer
         self.renderer: sdl2.ext.Renderer = renderer
         self.sprite_factory: sdl2.ext.SpriteFactory = sprite_factory
         self.text_cache = TextCache(self.renderer)
         self.sprite_manager = SpriteFactory(sprite_factory, self.text_cache)
+        self.cached_layers: Optional[Dict[int, sdl2.ext.renderer.TextureSprite]] = {}
 
-    def process(self, ticks: int, renderables: list[Component]):
+        self.background_needs_update: bool = True
+        self.buildings_needs_update: bool = True
+
+    def process(self, ticks: int, renderables: List[Tuple[Renderable, Position]]):
         if not hasattr(self, "_previous_ticks"):
             self._previous_ticks = ticks
 
-        z_sprites: list[list[Sprite]] = [[], [], [], []]
+        sprite_layers: list[list[Sprite]] = [[], [], [], []]
 
+        if self.background_needs_update:
+            texture = self.generate_layer_texture_for_sprites(0, renderables)
+            if texture:
+                self.cached_layers[0] = texture
+                self.background_needs_update = False
+
+        if self.buildings_needs_update:
+            texture = self.generate_layer_texture_for_sprites(1, renderables)
+            if texture:
+                self.cached_layers[1] = texture
+                self.buildings_needs_update = False
+
+        for z, texture in self.cached_layers.items():
+            if not texture:
+                continue
+
+            sprite_layers[z].append(texture)
+
+        get_sprite_group = self.sprite_manager.get_sprite_group
+        update_renderable = self.update_renderable
+
+        # Process non-background renderables
         for renderable, position in renderables:
-            sprite_group = self.sprite_manager.get_sprite_group(renderable.owner_id())
-            self.update_renderable(renderable, position, sprite_group)
-            z_sprites[renderable.z].extend(sprite_group.sprites)
+            if renderable.z < 2:
+                continue
 
-        self.sprite_renderer.render(
-            sprites=list(itertools.chain.from_iterable(z_sprites))
+            sprite_group = get_sprite_group(renderable.owner_id())
+            update_renderable(renderable, position, sprite_group)
+
+            sprite_layers[renderable.z].extend(sprite_group.sprites)
+
+        sdl_renderer: sdl2.SDL_Renderer = self.renderer.sdlrenderer
+
+        destination_rect = sdl2.SDL_Rect()
+        sdl_renderer_copy = sdl2.render.SDL_RenderCopyEx
+
+        self.renderer.clear((0, 0, 0, 0))
+
+        for layer in sprite_layers:
+            for sprite in layer:
+                destination_rect.x = sprite.x
+                destination_rect.y = sprite.y
+                destination_rect.w, destination_rect.h = sprite.size
+
+                if (
+                    sdl_renderer_copy(
+                        sdl_renderer,
+                        sprite.texture,
+                        None,
+                        destination_rect,
+                        sprite.angle,
+                        sprite.center,
+                        sprite.flip,
+                    )
+                    == -1
+                ):
+                    logger.error(
+                        "Failed to render sprite", sdl_error=sdl2.SDL_GetError()
+                    )
+                    raise sdl2.ext.err.SDLError()
+
+        self.renderer.present()
+
+    def generate_layer_texture_for_sprites(
+        self, z: int, renderables: list[Tuple[Renderable, Position]]
+    ) -> Optional[sdl2.ext.TextureSprite]:
+        sprites = [renderable for renderable in renderables if renderable[0].z == z]
+        if not sprites:
+            return
+
+        texture = self._generate_texture_from_sprites(sprites)
+        return sdl2.ext.renderer.TextureSprite(texture)
+
+    def _generate_texture_from_sprites(
+        self, renderables: list[Tuple[Renderable, Position]]
+    ) -> sdl2.SDL_Texture:
+        """Generate a texture containing all sprites."""
+
+        sdl_renderer: sdl2.SDL_Renderer = self.renderer.sdlrenderer
+
+        # Get the viewport size from the renderer
+        viewport = sdl2.SDL_Rect()
+        sdl2.SDL_RenderGetViewport(sdl_renderer, viewport)
+        width, height = viewport.w, viewport.h
+
+        target_texture: sdl2.SDL_Texture = sdl2.SDL_CreateTexture(
+            sdl_renderer,
+            sdl2.SDL_PIXELFORMAT_ARGB8888,
+            sdl2.SDL_TEXTUREACCESS_TARGET,
+            width,
+            height,
         )
+
+        sdl2.SDL_SetTextureBlendMode(target_texture, sdl2.SDL_BLENDMODE_BLEND)
+
+        if not target_texture:
+            error = sdl2.SDL_GetError()
+            logger.error("Failed to create sprites texture", error=error)
+            raise RuntimeError(error)
+
+        sdl2.render.SDL_SetRenderTarget(sdl_renderer, target_texture)
+
+        renderable: Renderable
+        position: Position
+        sprite: sdl2.ext.renderer.TextureSprite
+
+        get_sprite_group = self.sprite_manager.get_sprite_group
+        update_renderable = self.update_renderable
+        renderer_copy = self.renderer.copy
+
+        destination_rect = sdl2.SDL_Rect()
+
+        # Render all background sprites
+        for renderable, position in renderables:
+            sprite_group = get_sprite_group(renderable.owner_id())
+            update_renderable(renderable, position, sprite_group)
+
+            # Render all sprites in the group
+            for sprite in sprite_group.sprites:
+                destination_rect.x = sprite.x
+                destination_rect.y = sprite.y
+                destination_rect.w, destination_rect.h = sprite.size
+                renderer_copy(sprite.texture, dstrect=destination_rect)
+
+        sdl2.render.SDL_SetRenderTarget(sdl_renderer, None)
+
+        return target_texture
+
+    def invalidate_background(self) -> None:
+        """Mark the background texture for regeneration."""
+        self.background_needs_update = True
 
     def update_renderable(
         self, renderable: Renderable, position: Position, sprite_group: SpriteGroup
@@ -276,7 +415,9 @@ class RenderSystem:
     def _sync_labels(self, renderable: Renderable, sprite_group: SpriteGroup) -> None:
         """Synchronize the sprite group's label sprites with the renderable's labels."""
         # Get current label IDs in the sprite group
-        current_label_ids: set = {sprite.label_id for sprite in sprite_group.label_sprites}
+        current_label_ids: set = {
+            sprite.label_id for sprite in sprite_group.label_sprites
+        }
 
         # Get desired label IDs from the renderable
         desired_label_ids: set = set(renderable.labels.keys())
@@ -325,10 +466,6 @@ class Manager:
             renderer=self.renderer,
         )
 
-        self.sprite_renderer = self.sprite_factory.create_sprite_render_system(
-            self.window
-        )
-
     def setup_signals(self):
         def wrap_terminate(signum, stackframe):
             self.terminate(signum, stackframe)
@@ -341,7 +478,7 @@ class Manager:
         sdl2.SDL_RaiseWindow(self.window.window)
 
         self.render_system: RenderSystem = RenderSystem(
-            self.renderer, self.sprite_renderer, self.sprite_factory
+            self.renderer, self.sprite_factory
         )
 
     def start(self, world: World):
@@ -370,8 +507,6 @@ class Manager:
 
         while self.running:
             start: int = sdl2.SDL_GetTicks()
-
-            renderer.clear((0, 0, 0, 0))
 
             event: sdl2.SDL_Event
             for event in sdl2.ext.get_events():
