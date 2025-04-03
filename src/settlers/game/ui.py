@@ -5,10 +5,10 @@ import sdl2
 import sdl2.ext.renderer
 import sdl2.sdlttf
 from sdl2.ext.sprite import Sprite
-from sdl2.ext.spritesystem import SpriteRenderSystem
 import signal
 import structlog
-from typing import Dict, List, Optional, Tuple
+from collections.abc import Generator
+from typing import Dict, List, Optional, Tuple, Generator, Callable
 
 from settlers.engine.entities.position import Position
 from settlers.entities.map import Map, MapTile
@@ -28,6 +28,7 @@ class SpriteGroup:
         "label_sprites",
         "position",
         "needs_update",
+        "cached_texture",
         "_cached_sprites",
     )
 
@@ -37,12 +38,13 @@ class SpriteGroup:
         self.label_sprites: List[Sprite] = []
         self.position: Optional[tuple[int, int]] = None
         self.needs_update = True
+        self.cached_texture: Optional[sdl2.ext.TextureSprite] = None
         self._cached_sprites: Optional[List[Sprite]] = None
 
-    def update(self, position: Position) -> None:
+    def update(self, position: Position) -> bool:
         """Update all sprites in the group based on the position component."""
         if self.position == (position.x, position.y):
-            return
+            return False
 
         self.needs_update = True
         self._cached_sprites = None
@@ -50,7 +52,7 @@ class SpriteGroup:
         self.position = (position.x, position.y)
 
         if not self.base_sprite:
-            return
+            return False
 
         self.base_sprite.x = position.x
         self.base_sprite.y = position.y
@@ -74,6 +76,7 @@ class SpriteGroup:
             else:
                 label_count_top += 1
                 sprite.y -= sprite_h * label_count_top
+        return True
 
     def add_label_sprite(self, sprite: Sprite, position: str) -> None:
         """Add a label sprite to the group."""
@@ -262,13 +265,13 @@ class RenderSystem:
         sprite_layers: list[list[Sprite]] = [[], [], [], []]
 
         if self.background_needs_update:
-            texture = self.generate_layer_texture_for_sprites(0, renderables)
+            texture = self.generate_layer_texture_for_renderables(0, renderables)
             if texture:
                 self.cached_layers[0] = texture
                 self.background_needs_update = False
 
         if self.buildings_needs_update:
-            texture = self.generate_layer_texture_for_sprites(1, renderables)
+            texture = self.generate_layer_texture_for_renderables(1, renderables)
             if texture:
                 self.cached_layers[1] = texture
                 self.buildings_needs_update = False
@@ -290,7 +293,7 @@ class RenderSystem:
             sprite_group = get_sprite_group(renderable.owner_id())
             update_renderable(renderable, position, sprite_group)
 
-            sprite_layers[renderable.z].extend(sprite_group.sprites)
+            sprite_layers[renderable.z].extend(sprite_group.cached_texture)
 
         sdl_renderer: sdl2.SDL_Renderer = self.renderer.sdlrenderer
 
@@ -324,24 +327,88 @@ class RenderSystem:
 
         self.renderer.present()
 
-    def generate_layer_texture_for_sprites(
+    def _generate_texture_from_sprite_group(self, sprite_group: SpriteGroup) -> sdl2.ext.TextureSprite:
+        sprite: sdl2.ext.renderer.TextureSprite
+
+        update_renderable = self.update_renderable
+
+        destination_rect = sdl2.SDL_Rect()
+
+        target_texture: sdl2.SDL_Texture
+        renderer_copy = self.renderer.copy
+        sdl_renderer: sdl2.SDL_Renderer = self.renderer.sdlrenderer
+        target_texture = self._generate_sprite_group_texture(sprite_group)
+
+        sdl2.render.SDL_SetRenderTarget(sdl_renderer, target_texture)
+
+        # Render all background sprites
+        for renderable, position in renderables:
+            sprite_group = get_sprite_group(renderable.owner_id())
+    
+            update_renderable(renderable, position, sprite_group)
+
+            # Render all sprites in the group
+            for sprite in sprite_group.sprites:
+                destination_rect.x = sprite.x
+                destination_rect.y = sprite.y
+                destination_rect.w, destination_rect.h = sprite.size
+
+                renderer_copy(sprite, dstrect=destination_rect)
+
+        sdl2.render.SDL_SetRenderTarget(sdl_renderer, None)
+
+        return target_texture
+    
+    def generate_layer_texture_for_renderables(
         self, z: int, renderables: list[Tuple[Renderable, Position]]
     ) -> Optional[sdl2.ext.TextureSprite]:
         sprites = [renderable for renderable in renderables if renderable[0].z == z]
         if not sprites:
             return
 
-        texture = self._generate_texture_from_sprites(sprites)
+        texture = self._generate_texture_from_renderables(sprites)
         return sdl2.ext.renderer.TextureSprite(texture)
 
-    def _generate_texture_from_sprites(
-        self, renderables: list[Tuple[Renderable, Position]]
-    ) -> sdl2.SDL_Texture:
+    def _generate_texture_from_renderables(self, renderables: list[Tuple[Renderable, Position]]) -> sdl2.SDL_Texture:
+        renderable: Renderable
+        position: Position
+        sprite: sdl2.ext.renderer.TextureSprite
+
+        get_sprite_group = self.sprite_manager.get_sprite_group
+        update_renderable = self.update_renderable
+
+        destination_rect = sdl2.SDL_Rect()
+
+        target_texture: sdl2.SDL_Texture
+        renderer_copy = self.renderer.copy
+        sdl_renderer: sdl2.SDL_Renderer = self.renderer.sdlrenderer
+        target_texture = self._generate_viewport_texture()
+
+        sdl2.render.SDL_SetRenderTarget(sdl_renderer, target_texture)
+
+        # Render all background sprites
+        for renderable, position in renderables:
+            sprite_group = get_sprite_group(renderable.owner_id())
+    
+            update_renderable(renderable, position, sprite_group)
+
+            # Render all sprites in the group
+            for sprite in sprite_group.sprites:
+                destination_rect.x = sprite.x
+                destination_rect.y = sprite.y
+                destination_rect.w, destination_rect.h = sprite.size
+
+                renderer_copy(sprite, dstrect=destination_rect)
+
+        sdl2.render.SDL_SetRenderTarget(sdl_renderer, None)
+
+        return target_texture
+
+    def _generate_viewport_texture(self) -> sdl2.SDL_Texture:
         """Generate a texture containing all sprites."""
 
         sdl_renderer: sdl2.SDL_Renderer = self.renderer.sdlrenderer
 
-        # Get the viewport size from the renderer
         viewport = sdl2.SDL_Rect()
         sdl2.SDL_RenderGetViewport(sdl_renderer, viewport)
         width, height = viewport.w, viewport.h
@@ -360,33 +427,6 @@ class RenderSystem:
             error = sdl2.SDL_GetError()
             logger.error("Failed to create sprites texture", error=error)
             raise RuntimeError(error)
-
-        sdl2.render.SDL_SetRenderTarget(sdl_renderer, target_texture)
-
-        renderable: Renderable
-        position: Position
-        sprite: sdl2.ext.renderer.TextureSprite
-
-        get_sprite_group = self.sprite_manager.get_sprite_group
-        update_renderable = self.update_renderable
-        renderer_copy = self.renderer.copy
-
-        destination_rect = sdl2.SDL_Rect()
-
-        # Render all background sprites
-        for renderable, position in renderables:
-            sprite_group = get_sprite_group(renderable.owner_id())
-            update_renderable(renderable, position, sprite_group)
-
-            # Render all sprites in the group
-            for sprite in sprite_group.sprites:
-                destination_rect.x = sprite.x
-                destination_rect.y = sprite.y
-                destination_rect.w, destination_rect.h = sprite.size
-                renderer_copy(sprite.texture, dstrect=destination_rect)
-
-        sdl2.render.SDL_SetRenderTarget(sdl_renderer, None)
-
         return target_texture
 
     def invalidate_background(self) -> None:
@@ -405,12 +445,16 @@ class RenderSystem:
             )
 
         # Update sprites
-        sprite_group.update(position)
+        if sprite_group.update(position):
+            if renderable.labels_need_sync:
+                self._sync_labels(renderable, sprite_group)
+                renderable.labels_need_sync = False
 
-        # Sync labels if needed
-        if renderable.labels_need_sync:
-            self._sync_labels(renderable, sprite_group)
-            renderable.labels_need_sync = False
+            texture = self._generate_texture_from_sprite_group(sprite_group)
+            sprite_group.cached_texture = sdl2.ext.renderer.TextureSprite(texture)
+            
+
+
 
     def _sync_labels(self, renderable: Renderable, sprite_group: SpriteGroup) -> None:
         """Synchronize the sprite group's label sprites with the renderable's labels."""
